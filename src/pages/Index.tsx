@@ -3,6 +3,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Search, Filter, X, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 
 type Status = "draft" | "to-do" | "doing" | "done";
 type Priority = "low" | "medium" | "high" | "critical";
@@ -17,8 +20,12 @@ type Task = {
   start: string | null;
   due: string | null;
   description?: string;
+  duration?: number | null;
   position: { x: number; y: number };
 };
+
+const STATUSES: Status[] = ["draft", "to-do", "doing", "done"];
+const PRIORITIES: Priority[] = ["low", "medium", "high", "critical"];
 
 type Edge = { from: string; to: string };
 
@@ -164,12 +171,15 @@ function ConnectionLine({ from, to, containerRef }: { from: Task; to: Task; cont
 }
 
 export default function Index() {
+  const { toast } = useToast();
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [selectedTask, setSelectedTask] = useState<string | null>(null);
   const [activeAxis, setActiveAxis] = useState<string | null>(null);
   const [showCriticalPath, setShowCriticalPath] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [draggedTask, setDraggedTask] = useState<string | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [editedTask, setEditedTask] = useState<Task | null>(null);
 
   const handleDrag = useCallback((taskId: string, event: any, info: any) => {
     setTasks(prev => prev.map(t => 
@@ -298,85 +308,261 @@ export default function Index() {
 
       {/* Side panel */}
       <AnimatePresence>
-        {selectedTaskData && (
-          <motion.aside
-            initial={{ x: 400, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 400, opacity: 0 }}
-            className="fixed top-0 right-0 h-full w-96 bg-white border-l border-gray-200 shadow-xl z-30 p-6 overflow-y-auto"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold">Détails de la tâche</h2>
-              <Button variant="ghost" size="icon" onClick={() => setSelectedTask(null)}>
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
+        {selectedTaskData && (() => {
+          const currentTask = editedTask || selectedTaskData;
+          const hasChanges = editedTask !== null;
 
-            <div className="space-y-4">
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Statut</div>
-                <div 
-                  className="inline-block px-3 py-1.5 rounded-full text-sm font-medium"
-                  style={{ 
-                    backgroundColor: statusConfig[selectedTaskData.status].bg,
-                    color: statusConfig[selectedTaskData.status].text 
-                  }}
-                >
-                  {statusConfig[selectedTaskData.status].label}
-                </div>
+          const handleEdit = () => {
+            setEditedTask(selectedTaskData);
+            setEditMode(true);
+          };
+
+          const handleSave = () => {
+            if (editedTask) {
+              setTasks(prev => prev.map(t => t.id === editedTask.id ? editedTask : t));
+              toast({ title: "Tâche mise à jour", description: "Les modifications ont été enregistrées." });
+              setEditedTask(null);
+              setEditMode(false);
+            }
+          };
+
+          const handleCancel = () => {
+            setEditedTask(null);
+            setEditMode(false);
+          };
+
+          const updateField = <K extends keyof Task>(field: K, value: Task[K]) => {
+            if (editedTask) {
+              setEditedTask({ ...editedTask, [field]: value });
+            }
+          };
+
+          return (
+            <motion.aside
+              initial={{ x: 400, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 400, opacity: 0 }}
+              className="fixed top-0 right-0 h-full w-96 bg-white border-l border-gray-200 shadow-xl z-30 flex flex-col"
+            >
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <h2 className="text-lg font-semibold">{editMode ? "Modifier la tâche" : "Détails de la tâche"}</h2>
+                <Button variant="ghost" size="icon" onClick={() => { setSelectedTask(null); setEditedTask(null); setEditMode(false); }}>
+                  <X className="w-4 h-4" />
+                </Button>
               </div>
 
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Titre</div>
-                <div className="font-semibold">{selectedTaskData.title}</div>
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                {editMode ? (
+                  <>
+                    <div>
+                      <Label htmlFor="title">Titre</Label>
+                      <Input
+                        id="title"
+                        value={currentTask.title}
+                        onChange={(e) => updateField('title', e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="status">Statut</Label>
+                        <select
+                          id="status"
+                          value={currentTask.status}
+                          onChange={(e) => updateField('status', e.target.value as Status)}
+                          className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          {STATUSES.map(s => (
+                            <option key={s} value={s}>{statusConfig[s].label}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="priority">Priorité</Label>
+                        <select
+                          id="priority"
+                          value={currentTask.priority}
+                          onChange={(e) => updateField('priority', e.target.value as Priority)}
+                          className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          {PRIORITIES.map(p => (
+                            <option key={p} value={p}>{priorityConfig[p].label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="assignee">Assigné à</Label>
+                      <Input
+                        id="assignee"
+                        value={currentTask.assignee || ''}
+                        onChange={(e) => updateField('assignee', e.target.value || null)}
+                        className="mt-1"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="start">Date de début</Label>
+                        <Input
+                          id="start"
+                          type="date"
+                          value={currentTask.start || ''}
+                          onChange={(e) => updateField('start', e.target.value || null)}
+                          className="mt-1"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="due">Échéance</Label>
+                        <Input
+                          id="due"
+                          type="date"
+                          value={currentTask.due || ''}
+                          onChange={(e) => updateField('due', e.target.value || null)}
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="duration">Durée (jours)</Label>
+                      <Input
+                        id="duration"
+                        type="number"
+                        min="1"
+                        value={currentTask.duration || ''}
+                        onChange={(e) => updateField('duration', e.target.value ? parseInt(e.target.value) : null)}
+                        className="mt-1"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="description">Description</Label>
+                      <Textarea
+                        id="description"
+                        value={currentTask.description || ''}
+                        onChange={(e) => updateField('description', e.target.value)}
+                        className="mt-1 min-h-[100px]"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">Statut</div>
+                      <div 
+                        className="inline-block px-3 py-1.5 rounded-full text-sm font-medium"
+                        style={{ 
+                          backgroundColor: statusConfig[currentTask.status].bg,
+                          color: statusConfig[currentTask.status].text 
+                        }}
+                      >
+                        {statusConfig[currentTask.status].label}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">Titre</div>
+                      <div className="font-semibold">{currentTask.title}</div>
+                    </div>
+
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">Priorité</div>
+                      <div 
+                        className="inline-block px-3 py-1.5 rounded-full text-sm font-medium"
+                        style={{ 
+                          backgroundColor: priorityConfig[currentTask.priority].bg,
+                          color: priorityConfig[currentTask.priority].text 
+                        }}
+                      >
+                        {priorityConfig[currentTask.priority].label}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">Assigné à</div>
+                      <div>{currentTask.assignee || "—"}</div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">Début</div>
+                        <div className="text-sm">{currentTask.start ? new Date(currentTask.start).toLocaleDateString("fr-FR") : "—"}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">Échéance</div>
+                        <div className="text-sm">{currentTask.due ? new Date(currentTask.due).toLocaleDateString("fr-FR") : "—"}</div>
+                      </div>
+                    </div>
+
+                    {currentTask.duration && (
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">Durée</div>
+                        <div className="text-sm">{currentTask.duration} jours</div>
+                      </div>
+                    )}
+
+                    {currentTask.description && (
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">Description</div>
+                        <p className="text-sm text-gray-700">{currentTask.description}</p>
+                      </div>
+                    )}
+
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">Axe de recherche</div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full" style={{ backgroundColor: axisById[currentTask.axisId]?.color }} />
+                        <span className="text-sm">{axisById[currentTask.axisId]?.name}</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-gray-200">
+                      <div className="text-xs text-gray-500 mb-2">Dépendances</div>
+                      <div className="space-y-2 text-sm">
+                        <div>
+                          <span className="font-medium">Bloqué par:</span>
+                          <ul className="ml-4 mt-1">
+                            {edges.filter(e => e.to === currentTask.id).map(e => {
+                              const dep = taskById[e.from];
+                              return dep ? <li key={e.from}>• {dep.title}</li> : null;
+                            })}
+                            {edges.filter(e => e.to === currentTask.id).length === 0 && <li className="text-gray-500">Aucune</li>}
+                          </ul>
+                        </div>
+                        <div>
+                          <span className="font-medium">Bloque:</span>
+                          <ul className="ml-4 mt-1">
+                            {edges.filter(e => e.from === currentTask.id).map(e => {
+                              const dep = taskById[e.to];
+                              return dep ? <li key={e.to}>• {dep.title}</li> : null;
+                            })}
+                            {edges.filter(e => e.from === currentTask.id).length === 0 && <li className="text-gray-500">Aucune</li>}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
 
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Priorité</div>
-                <div 
-                  className="inline-block px-3 py-1.5 rounded-full text-sm font-medium"
-                  style={{ 
-                    backgroundColor: priorityConfig[selectedTaskData.priority].bg,
-                    color: priorityConfig[selectedTaskData.priority].text 
-                  }}
-                >
-                  {priorityConfig[selectedTaskData.priority].label}
-                </div>
+              <div className="p-4 border-t border-gray-200 flex gap-2">
+                {editMode ? (
+                  <>
+                    <Button onClick={handleSave} className="flex-1">Enregistrer</Button>
+                    <Button onClick={handleCancel} variant="outline">Annuler</Button>
+                  </>
+                ) : (
+                  <Button onClick={handleEdit} className="w-full">Modifier</Button>
+                )}
               </div>
-
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Assigné à</div>
-                <div>{selectedTaskData.assignee || "—"}</div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <div className="text-xs text-gray-500 mb-1">Début</div>
-                  <div className="text-sm">{selectedTaskData.start ? new Date(selectedTaskData.start).toLocaleDateString("fr-FR") : "—"}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-gray-500 mb-1">Échéance</div>
-                  <div className="text-sm">{selectedTaskData.due ? new Date(selectedTaskData.due).toLocaleDateString("fr-FR") : "—"}</div>
-                </div>
-              </div>
-
-              {selectedTaskData.description && (
-                <div>
-                  <div className="text-xs text-gray-500 mb-1">Description</div>
-                  <p className="text-sm text-gray-700">{selectedTaskData.description}</p>
-                </div>
-              )}
-
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Axe de recherche</div>
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full" style={{ backgroundColor: axisById[selectedTaskData.axisId]?.color }} />
-                  <span className="text-sm">{axisById[selectedTaskData.axisId]?.name}</span>
-                </div>
-              </div>
-            </div>
-          </motion.aside>
-        )}
+            </motion.aside>
+          );
+        })()}
       </AnimatePresence>
     </div>
   );
