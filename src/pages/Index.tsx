@@ -1,36 +1,24 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Filter, X, Lock, ZoomIn, ZoomOut, Maximize2, Plus, Trash2 } from "lucide-react";
+import { Search, Filter, X, Lock, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
-
-type Status = "draft" | "to-do" | "doing" | "done";
-type Priority = "low" | "medium" | "high" | "critical";
-
-type Task = {
-  id: string;
-  axisId: string;
-  title: string;
-  status: Status;
-  priority: Priority;
-  assignee: string | null;
-  start: string | null;
-  due: string | null;
-  description?: string;
-  duration?: number | null;
-  position: { x: number; y: number };
-};
+// zoom/pan implemented manually using scroll + CSS scale
+import SidePanel from "./index/SidePanel"; // Ensure this import is present
+import Toolbar from "./index/Toolbar";
+import ZoomControls from "./index/ZoomControls";
+import type { Status, Priority, Task, Edge, Axis } from "./index/types";
+import TaskCard from "./index/TaskCard";
+import ConnectionLine from "./index/ConnectionLine";
 
 const STATUSES: Status[] = ["draft", "to-do", "doing", "done"];
 const PRIORITIES: Priority[] = ["low", "medium", "high", "critical"];
 
-type Edge = { from: string; to: string };
+// Edge and Axis types are imported from ./index/types
 
-type Axis = { id: string; name: string; color: string };
 
 const axes: Axis[] = [
   { id: "AX-01", name: "Experimental Methods", color: "hsl(var(--axis-01))" },
@@ -70,106 +58,8 @@ const priorityConfig: Record<Priority, { bg: string; text: string; label: string
   critical: { bg: "hsl(var(--priority-critical))", text: "hsl(var(--priority-critical-fg))", label: "CRIT" },
 };
 
-function TaskCard({ task, onDoubleClick, isDragging, axisColor }: { task: Task; onDoubleClick: () => void; isDragging: boolean; axisColor: string }) {
-  const status = statusConfig[task.status];
-  const priority = priorityConfig[task.priority];
-  const initials = task.assignee?.split(" ").map(n => n[0]).join("") || "?";
-
-  const formatDate = (date: string | null) => {
-    if (!date) return "";
-    const d = new Date(date);
-    return d.toLocaleDateString("en-US", { day: "2-digit", month: "short" });
-  };
-
-  const dateRange = task.start && task.due 
-    ? `${formatDate(task.start)} -> ${formatDate(task.due)}`
-    : task.due 
-    ? formatDate(task.due)
-    : "";
-
-  return (
-    <div
-      onDoubleClick={onDoubleClick}
-      className={`relative bg-white rounded-full shadow-md border border-gray-200 h-16 w-[420px] flex items-center cursor-move transition-shadow ${isDragging ? "shadow-lg" : ""}`}
-      style={{
-        boxShadow: `0 0 0 3px ${axisColor}20`,
-      }}
-    >
-      {/* Status indicator - left semi-circle */}
-      <div
-        className="absolute left-0 h-16 w-16 rounded-l-full flex items-center justify-center"
-        style={{ backgroundColor: status.bg }}
-      >
-        <span className="text-[9px] font-bold uppercase px-1 text-center leading-tight" style={{ color: status.text }}>
-          {status.label}
-        </span>
-      </div>
-
-      {/* Main content area */}
-      <div className="flex-1 px-16 py-2">
-        <div className="font-semibold text-sm text-gray-900 line-clamp-1 mb-0.5">{task.title}</div>
-        {dateRange && (
-          <div className="text-xs text-gray-600">{dateRange}</div>
-        )}
-      </div>
-
-      {/* Priority & assignee - right semi-circle */}
-      <div
-        className="absolute right-0 h-16 w-16 rounded-r-full flex flex-col items-center justify-center gap-1 px-2"
-        style={{ backgroundColor: priority.bg }}
-      >
-        <span className="text-[9px] font-bold uppercase" style={{ color: priority.text }}>
-          {priority.label}
-        </span>
-        <div 
-          className="w-6 h-6 rounded-full bg-white/80 flex items-center justify-center text-[10px] font-semibold"
-          style={{ color: priority.text }}
-        >
-          {initials}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ConnectionLine({ from, to, containerRef }: { from: Task; to: Task; containerRef: React.RefObject<HTMLDivElement> }) {
-  const fromEl = containerRef.current?.querySelector(`[data-task-id="${from.id}"]`);
-  const toEl = containerRef.current?.querySelector(`[data-task-id="${to.id}"]`);
-
-  if (!fromEl || !toEl || !containerRef.current) return null;
-
-  const container = containerRef.current.getBoundingClientRect();
-  const fromRect = fromEl.getBoundingClientRect();
-  const toRect = toEl.getBoundingClientRect();
-
-  // Calculate connection points
-  const fromX = fromRect.right - container.left;
-  const fromY = fromRect.top + fromRect.height / 2 - container.top;
-  const toX = toRect.left - container.left;
-  const toY = toRect.top + toRect.height / 2 - container.top;
-
-  // Create smooth curve
-  const dx = toX - fromX;
-  const controlX1 = fromX + dx * 0.4;
-  const controlX2 = toX - dx * 0.4;
-
-  const path = `M ${fromX} ${fromY} C ${controlX1} ${fromY}, ${controlX2} ${toY}, ${toX} ${toY}`;
-
-  const isDone = from.status === "done";
-  const strokeColor = isDone ? "#9CA3AF" : "#374151";
-  const strokeDasharray = isDone ? "4 4" : undefined;
-
-  return (
-    <path
-      d={path}
-      fill="none"
-      stroke={strokeColor}
-      strokeWidth="2"
-      strokeDasharray={strokeDasharray}
-      markerEnd="url(#arrowhead)"
-    />
-  );
-}
+/* TaskCard and ConnectionLine components have been moved to
+   src/pages/index/TaskCard.tsx and src/pages/index/ConnectionLine.tsx */
 
 export default function Index() {
   const { toast } = useToast();
@@ -187,17 +77,65 @@ export default function Index() {
   const [editMode, setEditMode] = useState(false);
   const [editedTask, setEditedTask] = useState<Task | null>(null);
 
-  const handleDrag = useCallback((taskId: string, event: any, info: any) => {
-    setTasks(prev => prev.map(t => 
-      t.id === taskId 
-        ? { ...t, position: { x: t.position.x + info.delta.x, y: t.position.y + info.delta.y } }
-        : t
-    ));
-  }, []);
+  // manual zoom/scroll implementation
+  const currentScaleRef = useRef<number>(1);
+  const [scale, setScale] = useState<number>(1);
+  const currentPositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const isPanningRef = useRef(false);
+  const panStartRef = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
 
   const axisById = Object.fromEntries(axes.map(a => [a.id, a]));
   const taskById = Object.fromEntries(tasks.map(t => [t.id, t]));
   const selectedTaskData = selectedTask ? taskById[selectedTask] : null;
+
+  // center viewport on load so horizontal panning feels natural
+  useEffect(() => {
+    if (!viewportRef.current) return;
+    const vp = viewportRef.current;
+    // center on average of existing tasks so initial tasks are visible
+    if (tasks.length > 0) {
+      const avgX = Math.round(tasks.reduce((s, t) => s + t.position.x, 0) / tasks.length);
+      const avgY = Math.round(tasks.reduce((s, t) => s + t.position.y, 0) / tasks.length);
+      const s = currentScaleRef.current || scale || 1;
+      vp.scrollLeft = Math.max(0, Math.round(avgX * s - vp.clientWidth / 2));
+      vp.scrollTop = Math.max(0, Math.round(avgY * s - vp.clientHeight / 2));
+    } else {
+      vp.scrollLeft = Math.round((20000 - vp.clientWidth) / 2);
+      vp.scrollTop = Math.round((20000 - vp.clientHeight) / 2);
+    }
+  }, []);
+
+  const addNewTask = () => {
+    const id = `T-${Date.now().toString().slice(-6)}`;
+    // place new task at center of current viewport
+    let pos = { x: 200 + tasks.length * 40, y: 200 + (tasks.length % 5) * 40 };
+    try {
+      if (viewportRef.current) {
+        const vp = viewportRef.current;
+        const s = currentScaleRef.current || scale || 1;
+        pos = { x: Math.round((vp.scrollLeft + vp.clientWidth / 2) / s), y: Math.round((vp.scrollTop + vp.clientHeight / 2) / s) };
+      }
+    } catch {}
+    const newTask: Task = {
+      id,
+      axisId: axes[0].id,
+      title: "New Task",
+      status: "draft",
+      priority: "low",
+      assignee: null,
+      start: null,
+      due: null,
+      description: "",
+      duration: null,
+      position: pos,
+      temporary: true,
+    };
+    setTasks((prev) => [...prev, newTask]);
+    setSelectedTask(id);
+    setEditedTask(newTask);
+    setEditMode(true);
+  };
 
   const filteredTasks = tasks.filter(t => {
     if (activeAxis && t.axisId !== activeAxis) return false;
@@ -210,208 +148,295 @@ export default function Index() {
   return (
     <div className="min-h-screen bg-background">
       {/* Toolbar */}
-      <header className="sticky top-0 z-20 bg-white border-b border-gray-200">
-        <div className="px-6 py-3 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 flex-1 max-w-md">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input 
-                className="pl-9" 
-                placeholder="Search tasks..." 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            <Button 
-              variant={showFilters ? "default" : "outline"} 
-              size="sm"
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              <Filter className="w-4 h-4 mr-2" />
-              Filters
-            </Button>
-          </div>
-          <Button 
-            variant={showCriticalPath ? "default" : "outline"} 
-            size="sm"
-            onClick={() => setShowCriticalPath(!showCriticalPath)}
-          >
-            Critical Path
-          </Button>
-        </div>
-
-        {/* Filter Panel */}
-        <AnimatePresence>
-          {showFilters && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="border-t border-gray-200 overflow-hidden"
-            >
-              <div className="px-6 py-3 flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs text-gray-600">Status:</Label>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value as Status | "all")}
-                    className="h-8 rounded-md border border-input bg-background px-2 text-sm"
-                  >
-                    <option value="all">All</option>
-                    {STATUSES.map(s => (
-                      <option key={s} value={s}>{statusConfig[s].label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs text-gray-600">Priority:</Label>
-                  <select
-                    value={priorityFilter}
-                    onChange={(e) => setPriorityFilter(e.target.value as Priority | "all")}
-                    className="h-8 rounded-md border border-input bg-background px-2 text-sm"
-                  >
-                    <option value="all">All</option>
-                    {PRIORITIES.map(p => (
-                      <option key={p} value={p}>{priorityConfig[p].label}</option>
-                    ))}
-                  </select>
-                </div>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => {
-                    setSearchQuery("");
-                    setStatusFilter("all");
-                    setPriorityFilter("all");
-                  }}
-                >
-                  Clear
-                </Button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Legend */}
-        <div className="px-6 py-3 border-t border-gray-100 flex items-center gap-4 flex-wrap text-xs">
-          {axes.map(axis => (
-            <button
-              key={axis.id}
-              onClick={() => setActiveAxis(activeAxis === axis.id ? null : axis.id)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-colors ${
-                activeAxis === axis.id ? "border-gray-900 bg-gray-50" : "border-gray-300 hover:border-gray-400"
-              }`}
-            >
-              <span className="w-3 h-3 rounded-full" style={{ backgroundColor: axis.color }} />
-              <span className="font-medium">{axis.id}</span>
-            </button>
-          ))}
-          <div className="h-4 w-px bg-gray-300" />
-          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{ backgroundColor: statusConfig["to-do"].bg }} /><span>To-do</span></div>
-          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{ backgroundColor: statusConfig.doing.bg }} /><span>Doing</span></div>
-          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{ backgroundColor: statusConfig.done.bg }} /><span>Done</span></div>
-          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{ backgroundColor: statusConfig.draft.bg }} /><span>Draft</span></div>
-          <div className="h-4 w-px bg-gray-300" />
-          <div className="flex items-center gap-2"><div className="w-6 h-0.5 bg-gray-800" /><span>Active blocker</span></div>
-          <div className="flex items-center gap-2"><div className="w-6 h-0.5 bg-gray-400 border-b border-dashed" /><span>Resolved</span></div>
-        </div>
-      </header>
+      <Toolbar
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        showFilters={showFilters}
+        setShowFilters={setShowFilters}
+        statusFilter={statusFilter}
+        setStatusFilter={setStatusFilter}
+        priorityFilter={priorityFilter}
+        setPriorityFilter={setPriorityFilter}
+        STATUSES={STATUSES}
+        PRIORITIES={PRIORITIES}
+        statusConfig={statusConfig}
+        priorityConfig={priorityConfig}
+        axes={axes}
+        activeAxis={activeAxis}
+        setActiveAxis={setActiveAxis}
+        showCriticalPath={showCriticalPath}
+        setShowCriticalPath={setShowCriticalPath}
+        onAddTask={addNewTask}
+      />
 
       {/* Canvas */}
       <main className="p-6">
-        <TransformWrapper
-          initialScale={1}
-          minScale={0.3}
-          maxScale={2}
-          centerOnInit
-          wheel={{ step: 0.1 }}
-          panning={{ velocityDisabled: true }}
-        >
-          {({ zoomIn, zoomOut, resetTransform }) => (
-            <>
-              {/* Zoom controls */}
-              <div className="mb-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => zoomIn()}>
-                    <ZoomIn className="w-4 h-4 mr-1" />
-                    Zoom In
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => zoomOut()}>
-                    <ZoomOut className="w-4 h-4 mr-1" />
-                    Zoom Out
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => resetTransform()}>
-                    <Maximize2 className="w-4 h-4 mr-1" />
-                    Reset
-                  </Button>
-                </div>
-                <div className="text-xs text-gray-500">
-                  Drag canvas to pan • Scroll to zoom • Double-click task to edit
-                </div>
-              </div>
+        {/* manual zoom controls + scrollable viewport */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <ZoomControls
+            zoomIn={() => {
+              const newScale = Math.min(2, +(scale + 0.1).toFixed(2));
+              // adjust scroll to keep center
+              if (viewportRef.current) {
+                const vp = viewportRef.current;
+                const rect = vp.getBoundingClientRect();
+                const cx = vp.scrollLeft + rect.width / 2;
+                const cy = vp.scrollTop + rect.height / 2;
+                const ratio = newScale / scale;
+                const newLeft = Math.round(cx * ratio - rect.width / 2);
+                const newTop = Math.round(cy * ratio - rect.height / 2);
+                setScale(newScale);
+                currentScaleRef.current = newScale;
+                requestAnimationFrame(() => {
+                  vp.scrollLeft = newLeft;
+                  vp.scrollTop = newTop;
+                });
+              } else {
+                setScale(newScale);
+                currentScaleRef.current = newScale;
+              }
+            }}
+            zoomOut={() => {
+              const newScale = Math.max(0.3, +(scale - 0.1).toFixed(2));
+              if (viewportRef.current) {
+                const vp = viewportRef.current;
+                const rect = vp.getBoundingClientRect();
+                const cx = vp.scrollLeft + rect.width / 2;
+                const cy = vp.scrollTop + rect.height / 2;
+                const ratio = newScale / scale;
+                const newLeft = Math.round(cx * ratio - rect.width / 2);
+                const newTop = Math.round(cy * ratio - rect.height / 2);
+                setScale(newScale);
+                currentScaleRef.current = newScale;
+                requestAnimationFrame(() => {
+                  vp.scrollLeft = newLeft;
+                  vp.scrollTop = newTop;
+                });
+              } else {
+                setScale(newScale);
+                currentScaleRef.current = newScale;
+              }
+            }}
+            resetTransform={() => {
+              const newScale = 1;
+              setScale(1);
+              currentScaleRef.current = 1;
+              if (viewportRef.current) {
+                const vp = viewportRef.current;
+                vp.scrollLeft = Math.round((20000 - vp.clientWidth) / 2);
+                vp.scrollTop = Math.round((20000 - vp.clientHeight) / 2);
+              }
+            }}
+          />
+        </div>
 
-              <TransformComponent
-                wrapperStyle={{ width: "100%", height: "600px" }}
-                contentStyle={{ width: "100%", height: "100%" }}
-              >
-                <div 
-                  ref={containerRef}
-                  className="relative bg-white rounded-lg shadow-sm border border-gray-200"
-                  style={{ width: "2400px", height: "800px" }}
-                >
-                  {/* SVG for connections */}
-                  <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
-                    <defs>
-                      <marker
-                        id="arrowhead"
-                        markerWidth="10"
-                        markerHeight="10"
-                        refX="9"
-                        refY="3"
-                        orient="auto"
-                      >
-                        <polygon points="0 0, 10 3, 0 6" fill="#374151" />
-                      </marker>
-                    </defs>
-                    {edges.map((edge, idx) => {
-                      const fromTask = taskById[edge.from];
-                      const toTask = taskById[edge.to];
-                      if (!fromTask || !toTask) return null;
-                      if (activeAxis && (fromTask.axisId !== activeAxis || toTask.axisId !== activeAxis)) return null;
-                      return <ConnectionLine key={idx} from={fromTask} to={toTask} containerRef={containerRef} />;
-                    })}
-                  </svg>
-
-                  {/* Tasks */}
-                  {filteredTasks.map(task => (
-                    <motion.div
-                      key={task.id}
-                      data-task-id={task.id}
-                      drag
-                      dragMomentum={false}
-                      onDrag={(e, info) => handleDrag(task.id, e, info)}
-                      onDragStart={() => setDraggedTask(task.id)}
-                      onDragEnd={() => setDraggedTask(null)}
-                      style={{
-                        position: "absolute",
-                        left: task.position.x,
-                        top: task.position.y,
-                        zIndex: 10,
-                      }}
-                    >
-                      <TaskCard
-                        task={task}
-                        onDoubleClick={() => setSelectedTask(task.id)}
-                        isDragging={draggedTask === task.id}
-                        axisColor={axisById[task.axisId]?.color || "#000"}
+        <div ref={viewportRef} style={{ width: "100%", height: "calc(100vh - 200px)", overflow: 'auto' }}>
+          <div style={{ width: 20000, height: 20000 }}>
+            {/* scaled canvas container */}
+            <div
+              ref={containerRef}
+              onDoubleClick={(e) => {
+                // double-click on background to add task
+                if (!viewportRef.current) return;
+                // if click was on a task or link, ignore here (events should have stopped propagation)
+                const rect = viewportRef.current.getBoundingClientRect();
+                const scaleLocal = currentScaleRef.current || scale || 1;
+                const clientX = (e as React.MouseEvent).clientX ?? 0;
+                const clientY = (e as React.MouseEvent).clientY ?? 0;
+                const canvasX = (viewportRef.current.scrollLeft + clientX - rect.left) / scaleLocal;
+                const canvasY = (viewportRef.current.scrollTop + clientY - rect.top) / scaleLocal;
+                try { console.debug('dblclick addTask', { clientX, clientY, rectLeft: rect.left, rectTop: rect.top, scale: scaleLocal, canvasX, canvasY }); } catch {}
+                const id = `T-${Date.now().toString().slice(-6)}`;
+                const newTask: Task = {
+                  id,
+                  axisId: axes[0].id,
+                  title: "New Task",
+                  status: "draft",
+                  priority: "low",
+                  assignee: null,
+                  start: null,
+                  due: null,
+                  description: "",
+                  duration: null,
+                  position: { x: Math.max(20, Math.round(canvasX)), y: Math.max(20, Math.round(canvasY)) },
+                  temporary: true,
+                };
+                setTasks((prev) => [...prev, newTask]);
+                setSelectedTask(id);
+                setEditedTask(newTask);
+                setEditMode(true);
+              }}
+              onPointerDown={(e) => {
+                // start panning when clicking on background
+                if (!viewportRef.current) return;
+                isPanningRef.current = true;
+                panStartRef.current = { x: e.clientX, y: e.clientY, left: viewportRef.current.scrollLeft, top: viewportRef.current.scrollTop };
+                (e.target as Element).setPointerCapture?.(e.pointerId);
+              }}
+              onPointerMove={(e) => {
+                if (!isPanningRef.current || !viewportRef.current || !panStartRef.current) return;
+                const dx = e.clientX - panStartRef.current.x;
+                const dy = e.clientY - panStartRef.current.y;
+                viewportRef.current.scrollLeft = Math.max(0, Math.round(panStartRef.current.left - dx));
+                viewportRef.current.scrollTop = Math.max(0, Math.round(panStartRef.current.top - dy));
+              }}
+              onPointerUp={(e) => {
+                isPanningRef.current = false;
+                panStartRef.current = null;
+                try { (e.target as Element).releasePointerCapture?.(e.pointerId); } catch {}
+              }}
+              onPointerCancel={() => { isPanningRef.current = false; panStartRef.current = null; }}
+              className="relative bg-white rounded-lg shadow-sm border border-gray-200"
+              style={{ width: "20000px", height: "20000px", transform: `scale(${scale})`, transformOrigin: '0 0', touchAction: 'none', cursor: isPanningRef.current ? 'grabbing' : 'grab' }}
+            >
+              {/* SVG for connections */}
+                <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 1 }}>
+                <defs>
+                  <marker
+                    id="arrowhead"
+                    markerWidth="10"
+                    markerHeight="10"
+                    refX="9"
+                    refY="3"
+                    orient="auto"
+                  >
+                    <polygon points="0 0, 10 3, 0 6" fill="#374151" />
+                  </marker>
+                </defs>
+                {edges.map((edge, idx) => {
+                  const fromTask = taskById[edge.from];
+                  const toTask = taskById[edge.to];
+                  if (!fromTask || !toTask) return null;
+                  if (activeAxis && (fromTask.axisId !== activeAxis || toTask.axisId !== activeAxis)) return null;
+                  // render path and allow click to edit/remove link
+                  return (
+                    <g key={idx}>
+                      <ConnectionLine from={fromTask} to={toTask} containerRef={containerRef} />
+                      <path
+                        d={(() => {
+                          // recompute path same as ConnectionLine to attach events
+                          const fromEl = containerRef.current?.querySelector(`[data-task-id="${fromTask.id}"]`);
+                          const toEl = containerRef.current?.querySelector(`[data-task-id="${toTask.id}"]`);
+                          if (!fromEl || !toEl || !containerRef.current) return "";
+                          const container = containerRef.current.getBoundingClientRect();
+                          const fromRect = fromEl.getBoundingClientRect();
+                          const toRect = toEl.getBoundingClientRect();
+                          const fromX = fromRect.right - container.left;
+                          const fromY = fromRect.top + fromRect.height / 2 - container.top;
+                          const toX = toRect.left - container.left;
+                          const toY = toRect.top + toRect.height / 2 - container.top;
+                          const dx = toX - fromX;
+                          const controlX1 = fromX + dx * 0.4;
+                          const controlX2 = toX - dx * 0.4;
+                          return `M ${fromX} ${fromY} C ${controlX1} ${fromY}, ${controlX2} ${toY}, ${toX} ${toY}`;
+                        })()}
+                        fill="none"
+                        stroke="transparent"
+                        strokeWidth={12}
+                        onClick={() => {
+                          // simple edit: ask to remove the link
+                          if (confirm('Remove this link?')) {
+                            setEdges((prev) => prev.filter((e) => !(e.from === edge.from && e.to === edge.to)));
+                          }
+                        }}
+                        style={{ cursor: 'pointer', pointerEvents: 'auto' }}
                       />
-                    </motion.div>
-                  ))}
-                </div>
-              </TransformComponent>
-            </>
-          )}
-        </TransformWrapper>
+                    </g>
+                  );
+                })}
+              </svg>
+
+              {/* Tasks */}
+              {filteredTasks.map(task => (
+                <motion.div
+                  key={task.id}
+                  data-task-id={task.id}
+                  drag
+                  dragMomentum={false}
+                  onDragStart={(e) => {
+                    try { (e as unknown as Event).stopPropagation(); } catch {}
+                    setDraggedTask(task.id);
+                  }}
+                  onDrag={(e) => { try { (e as unknown as Event).stopPropagation(); } catch {} }}
+                  onClick={(e) => {
+                    // shift+click to create a link from the currently selected task to this one
+                    const evt = e as React.MouseEvent;
+                    if (evt.shiftKey && selectedTask && selectedTask !== task.id) {
+                      if (!edges.some((ed) => ed.from === selectedTask && ed.to === task.id)) {
+                        setEdges((prev) => [...prev, { from: selectedTask!, to: task.id }]);
+                        try { toast?.({ title: 'Link added', description: `${selectedTask} → ${task.id}` }); } catch {}
+                      }
+                      setSelectedTask(null);
+                      return;
+                    }
+                    // otherwise select this task (do not open editor on single click)
+                    setSelectedTask(task.id);
+                  }}
+                  onPointerDown={(e) => {
+                    // prevent pointer events from bubbling to the background panning handler
+                    try { (e as unknown as Event).stopPropagation(); } catch {}
+                  }}
+                  onDragEnd={(e, info) => {
+                    try { (e as unknown as Event).stopPropagation(); } catch {}
+                    if (!viewportRef.current) { setDraggedTask(null); return; }
+                    const scaleLocal = currentScaleRef.current || scale || 1;
+                    // try to read the transform applied by framer-motion during drag
+                    const target = (e as any).target as HTMLElement | null;
+                    let tx = 0;
+                    let ty = 0;
+                    try {
+                      if (target) {
+                        const cs = window.getComputedStyle(target);
+                        const tr = cs.transform || (cs as any).webkitTransform;
+                        if (tr && tr !== 'none') {
+                          // matrix(a, b, c, d, tx, ty) or matrix3d(..., tx, ty)
+                          const m = tr.match(/matrix.*\((.+)\)/);
+                          if (m) {
+                            const parts = m[1].split(',').map(s => parseFloat(s.trim()));
+                            if (parts.length >= 6) {
+                              tx = parts[4];
+                              ty = parts[5];
+                            } else if (parts.length === 16) {
+                              // matrix3d
+                              tx = parts[12];
+                              ty = parts[13];
+                            }
+                          }
+                        }
+                      }
+                    } catch (err) {
+                      // fallback: use info.offset as rough estimate
+                      tx = info?.offset?.x ?? 0;
+                      ty = info?.offset?.y ?? 0;
+                    }
+                    // convert the pixel translation into canvas units
+                    const deltaX = tx / (scaleLocal || 1);
+                    const deltaY = ty / (scaleLocal || 1);
+                    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, position: { x: Math.max(0, Math.round(t.position.x + deltaX)), y: Math.max(0, Math.round(t.position.y + deltaY)) } } : t));
+                    setDraggedTask(null);
+                  }}
+                  style={{ position: "absolute", left: task.position.x, top: task.position.y, zIndex: 10 }}
+                >
+                  <TaskCard
+                    task={task}
+                    onDoubleClick={(e: React.MouseEvent) => {
+                      // prevent the background double-click handler from firing
+                      try { e.stopPropagation(); } catch {}
+                      // open editor on double-click
+                      setSelectedTask(task.id);
+                      setEditedTask(task);
+                      setEditMode(true);
+                    }}
+                    isDragging={draggedTask === task.id}
+                    axisColor={axisById[task.axisId]?.color || "#000"}
+                    statusConfig={statusConfig}
+                    priorityConfig={priorityConfig}
+                  />
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </div>
 
         <div className="mt-4 text-xs text-gray-500 flex items-center gap-2">
           <Lock className="w-3 h-3" />
@@ -421,341 +446,26 @@ export default function Index() {
 
       {/* Side panel */}
       <AnimatePresence>
-        {selectedTaskData && (() => {
-          const currentTask = editedTask || selectedTaskData;
-          const hasChanges = editedTask !== null;
-
-          const handleEdit = () => {
-            setEditedTask(selectedTaskData);
-            setEditMode(true);
-          };
-
-          const handleSave = () => {
-            if (editedTask) {
-              setTasks(prev => prev.map(t => t.id === editedTask.id ? editedTask : t));
-              toast({ title: "Task updated", description: "Changes have been saved." });
-              setEditedTask(null);
-              setEditMode(false);
-            }
-          };
-
-          const handleCancel = () => {
-            setEditedTask(null);
-            setEditMode(false);
-          };
-
-          const updateField = <K extends keyof Task>(field: K, value: Task[K]) => {
-            if (editedTask) {
-              setEditedTask({ ...editedTask, [field]: value });
-            }
-          };
-
-          return (
-            <motion.aside
-              initial={{ x: 400, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: 400, opacity: 0 }}
-              className="fixed top-0 right-0 h-full w-96 bg-white border-l border-gray-200 shadow-xl z-30 flex flex-col"
-            >
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <h2 className="text-lg font-semibold">{editMode ? "Edit Task" : "Task Details"}</h2>
-                <Button variant="ghost" size="icon" onClick={() => { setSelectedTask(null); setEditedTask(null); setEditMode(false); }}>
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                {editMode ? (
-                  <>
-                    <div>
-                      <Label htmlFor="title">Title</Label>
-                      <Input
-                        id="title"
-                        value={currentTask.title}
-                        onChange={(e) => updateField('title', e.target.value)}
-                        className="mt-1"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label htmlFor="status">Status</Label>
-                        <select
-                          id="status"
-                          value={currentTask.status}
-                          onChange={(e) => updateField('status', e.target.value as Status)}
-                          className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        >
-                          {STATUSES.map(s => (
-                            <option key={s} value={s}>{statusConfig[s].label}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="priority">Priority</Label>
-                        <select
-                          id="priority"
-                          value={currentTask.priority}
-                          onChange={(e) => updateField('priority', e.target.value as Priority)}
-                          className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        >
-                          {PRIORITIES.map(p => (
-                            <option key={p} value={p}>{priorityConfig[p].label}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="assignee">Assigned to</Label>
-                      <Input
-                        id="assignee"
-                        value={currentTask.assignee || ''}
-                        onChange={(e) => updateField('assignee', e.target.value || null)}
-                        className="mt-1"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label htmlFor="start">Start Date</Label>
-                        <Input
-                          id="start"
-                          type="date"
-                          value={currentTask.start || ''}
-                          onChange={(e) => updateField('start', e.target.value || null)}
-                          className="mt-1"
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="due">Due Date</Label>
-                        <Input
-                          id="due"
-                          type="date"
-                          value={currentTask.due || ''}
-                          onChange={(e) => updateField('due', e.target.value || null)}
-                          className="mt-1"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="duration">Duration (days)</Label>
-                      <Input
-                        id="duration"
-                        type="number"
-                        min="1"
-                        value={currentTask.duration || ''}
-                        onChange={(e) => updateField('duration', e.target.value ? parseInt(e.target.value) : null)}
-                        className="mt-1"
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="description">Description</Label>
-                      <Textarea
-                        id="description"
-                        value={currentTask.description || ''}
-                        onChange={(e) => updateField('description', e.target.value)}
-                        className="mt-1 min-h-[100px]"
-                      />
-                    </div>
-
-                    <div className="pt-4 border-t">
-                      <Label className="mb-2 block">Dependencies</Label>
-                      
-                      <div className="space-y-3">
-                        <div>
-                          <div className="text-xs text-gray-600 mb-2">Blocked by:</div>
-                          <div className="space-y-2">
-                            {edges.filter(e => e.to === currentTask.id).map(e => {
-                              const dep = taskById[e.from];
-                              return dep ? (
-                                <div key={e.from} className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
-                                  <span>{dep.title}</span>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm"
-                                    onClick={() => {
-                                      setEdges(prev => prev.filter(edge => !(edge.from === e.from && edge.to === e.to)));
-                                    }}
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </Button>
-                                </div>
-                              ) : null;
-                            })}
-                            <select
-                              className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                              value=""
-                              onChange={(e) => {
-                                if (e.target.value && !edges.some(edge => edge.from === e.target.value && edge.to === currentTask.id)) {
-                                  setEdges(prev => [...prev, { from: e.target.value, to: currentTask.id }]);
-                                }
-                              }}
-                            >
-                              <option value="">+ Add blocker...</option>
-                              {tasks.filter(t => t.id !== currentTask.id && !edges.some(e => e.from === t.id && e.to === currentTask.id)).map(t => (
-                                <option key={t.id} value={t.id}>{t.title}</option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-
-                        <div>
-                          <div className="text-xs text-gray-600 mb-2">Blocks:</div>
-                          <div className="space-y-2">
-                            {edges.filter(e => e.from === currentTask.id).map(e => {
-                              const dep = taskById[e.to];
-                              return dep ? (
-                                <div key={e.to} className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
-                                  <span>{dep.title}</span>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm"
-                                    onClick={() => {
-                                      setEdges(prev => prev.filter(edge => !(edge.from === e.from && edge.to === e.to)));
-                                    }}
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </Button>
-                                </div>
-                              ) : null;
-                            })}
-                            <select
-                              className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                              value=""
-                              onChange={(e) => {
-                                if (e.target.value && !edges.some(edge => edge.from === currentTask.id && edge.to === e.target.value)) {
-                                  setEdges(prev => [...prev, { from: currentTask.id, to: e.target.value }]);
-                                }
-                              }}
-                            >
-                              <option value="">+ Add blocked task...</option>
-                              {tasks.filter(t => t.id !== currentTask.id && !edges.some(e => e.from === currentTask.id && e.to === t.id)).map(t => (
-                                <option key={t.id} value={t.id}>{t.title}</option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div>
-                      <div className="text-xs text-gray-500 mb-1">Status</div>
-                      <div 
-                        className="inline-block px-3 py-1.5 rounded-full text-sm font-medium"
-                        style={{ 
-                          backgroundColor: statusConfig[currentTask.status].bg,
-                          color: statusConfig[currentTask.status].text 
-                        }}
-                      >
-                        {statusConfig[currentTask.status].label}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="text-xs text-gray-500 mb-1">Title</div>
-                      <div className="font-semibold">{currentTask.title}</div>
-                    </div>
-
-                    <div>
-                      <div className="text-xs text-gray-500 mb-1">Priority</div>
-                      <div 
-                        className="inline-block px-3 py-1.5 rounded-full text-sm font-medium"
-                        style={{ 
-                          backgroundColor: priorityConfig[currentTask.priority].bg,
-                          color: priorityConfig[currentTask.priority].text 
-                        }}
-                      >
-                        {priorityConfig[currentTask.priority].label}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="text-xs text-gray-500 mb-1">Assigned to</div>
-                      <div>{currentTask.assignee || "—"}</div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <div className="text-xs text-gray-500 mb-1">Start</div>
-                        <div className="text-sm">{currentTask.start ? new Date(currentTask.start).toLocaleDateString("en-US") : "—"}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-500 mb-1">Due</div>
-                        <div className="text-sm">{currentTask.due ? new Date(currentTask.due).toLocaleDateString("en-US") : "—"}</div>
-                      </div>
-                    </div>
-
-                    {currentTask.duration && (
-                      <div>
-                        <div className="text-xs text-gray-500 mb-1">Duration</div>
-                        <div className="text-sm">{currentTask.duration} days</div>
-                      </div>
-                    )}
-
-                    {currentTask.description && (
-                      <div>
-                        <div className="text-xs text-gray-500 mb-1">Description</div>
-                        <p className="text-sm text-gray-700">{currentTask.description}</p>
-                      </div>
-                    )}
-
-                    <div>
-                      <div className="text-xs text-gray-500 mb-1">Research Axis</div>
-                      <div className="flex items-center gap-2">
-                        <span className="w-3 h-3 rounded-full" style={{ backgroundColor: axisById[currentTask.axisId]?.color }} />
-                        <span className="text-sm">{axisById[currentTask.axisId]?.name}</span>
-                      </div>
-                    </div>
-
-                    <div className="pt-4 border-t border-gray-200">
-                      <div className="text-xs text-gray-500 mb-2">Dependencies</div>
-                      <div className="space-y-2 text-sm">
-                        <div>
-                          <span className="font-medium">Blocked by:</span>
-                          <ul className="ml-4 mt-1">
-                            {edges.filter(e => e.to === currentTask.id).map(e => {
-                              const dep = taskById[e.from];
-                              return dep ? <li key={e.from}>• {dep.title}</li> : null;
-                            })}
-                            {edges.filter(e => e.to === currentTask.id).length === 0 && <li className="text-gray-500">None</li>}
-                          </ul>
-                        </div>
-                        <div>
-                          <span className="font-medium">Blocks:</span>
-                          <ul className="ml-4 mt-1">
-                            {edges.filter(e => e.from === currentTask.id).map(e => {
-                              const dep = taskById[e.to];
-                              return dep ? <li key={e.to}>• {dep.title}</li> : null;
-                            })}
-                            {edges.filter(e => e.from === currentTask.id).length === 0 && <li className="text-gray-500">None</li>}
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <div className="p-4 border-t border-gray-200 flex gap-2">
-                {editMode ? (
-                  <>
-                    <Button onClick={handleSave} className="flex-1">Save</Button>
-                    <Button onClick={handleCancel} variant="outline">Cancel</Button>
-                  </>
-                ) : (
-                  <Button onClick={handleEdit} className="w-full">Edit</Button>
-                )}
-              </div>
-            </motion.aside>
-          );
-        })()}
+        {selectedTaskData && (
+          <SidePanel
+            selectedTaskData={selectedTaskData}
+            editedTask={editedTask}
+            editMode={editMode}
+            setEditedTask={setEditedTask}
+            setEditMode={setEditMode}
+            setSelectedTask={setSelectedTask}
+            tasks={tasks}
+            edges={edges}
+            setEdges={setEdges}
+            setTasks={setTasks}
+            taskById={taskById}
+            axisById={axisById}
+            statusConfig={statusConfig}
+            priorityConfig={priorityConfig}
+            STATUSES={STATUSES}
+            PRIORITIES={PRIORITIES}
+          />
+        )}
       </AnimatePresence>
     </div>
   );
