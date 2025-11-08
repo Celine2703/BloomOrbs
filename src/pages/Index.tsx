@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Filter, X, Lock, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -65,6 +65,20 @@ const priorityConfig: Record<Priority, { bg: string; text: string; label: string
 /* TaskCard and ConnectionLine components have been moved to
    src/pages/index/TaskCard.tsx and src/pages/index/ConnectionLine.tsx */
 
+type ClientPoint = { x: number; y: number };
+
+const extractClientPoint = (event: any): ClientPoint | null => {
+  if (!event) return null;
+  if (typeof event.clientX === "number" && typeof event.clientY === "number") {
+    return { x: event.clientX, y: event.clientY };
+  }
+  const touch = event.touches?.[0] ?? event.changedTouches?.[0];
+  if (touch && typeof touch.clientX === "number" && typeof touch.clientY === "number") {
+    return { x: touch.clientX, y: touch.clientY };
+  }
+  return null;
+};
+
 export default function Index() {
   const { toast } = useToast();
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
@@ -91,11 +105,26 @@ export default function Index() {
   const panStartRef = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
   // temporary offsets applied during an in-progress drag (canvas units)
   const tempOffsetsRef = useRef<Record<string, { x: number; y: number }>>({});
+  const dragMetaRef = useRef<{
+    taskId: string;
+    pointerOffset: { x: number; y: number };
+    startPos: { x: number; y: number };
+  } | null>(null);
   const [, setDragTick] = useState(0);
 
   const axisById = Object.fromEntries(axes.map(a => [a.id, a]));
   const taskById = Object.fromEntries(tasks.map(t => [t.id, t]));
   const selectedTaskData = selectedTask ? taskById[selectedTask] : null;
+
+  const getCanvasPoint = useCallback((clientX: number, clientY: number) => {
+    if (!viewportRef.current) return null;
+    const rect = viewportRef.current.getBoundingClientRect();
+    const currentScale = currentScaleRef.current || scale || 1;
+    return {
+      x: (viewportRef.current.scrollLeft + clientX - rect.left) / currentScale,
+      y: (viewportRef.current.scrollTop + clientY - rect.top) / currentScale,
+    };
+  }, [scale]);
 
   // center viewport on load so horizontal panning feels natural
   useEffect(() => {
@@ -180,6 +209,8 @@ export default function Index() {
     if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
     return true;
   });
+
+  const visibleTaskIds = useMemo(() => new Set(filteredTasks.map(t => t.id)), [filteredTasks]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -346,6 +377,7 @@ export default function Index() {
                   const fromTask = taskById[edge.from];
                   const toTask = taskById[edge.to];
                   if (!fromTask || !toTask) return null;
+                  if (!visibleTaskIds.has(edge.from) || !visibleTaskIds.has(edge.to)) return null;
                   if (activeAxis && (fromTask.axisId !== activeAxis || toTask.axisId !== activeAxis)) return null;
                   // render path and allow click to edit/remove link
                   return (
@@ -385,21 +417,50 @@ export default function Index() {
                   data-task-id={task.id}
                   drag
                   dragMomentum={false}
-                  onDragStart={(e) => {
+                  onDragStart={(e, _info) => {
                     try { (e as unknown as Event).stopPropagation(); } catch {}
+                    const point = extractClientPoint(e);
+                    const canvasPoint = point ? getCanvasPoint(point.x, point.y) : null;
+                    if (canvasPoint) {
+                      dragMetaRef.current = {
+                        taskId: task.id,
+                        pointerOffset: {
+                          x: canvasPoint.x - task.position.x,
+                          y: canvasPoint.y - task.position.y,
+                        },
+                        startPos: { ...task.position },
+                      };
+                    } else if (!dragMetaRef.current || dragMetaRef.current.taskId !== task.id) {
+                      dragMetaRef.current = {
+                        taskId: task.id,
+                        pointerOffset: { x: 0, y: 0 },
+                        startPos: { ...task.position },
+                      };
+                    }
                     setDraggedTask(task.id);
                   }}
                   onDrag={(e, info) => {
                     try { (e as unknown as Event).stopPropagation(); } catch {}
-                    const scaleLocal = currentScaleRef.current || scale || 1;
-                    // use info.offset which contains cumulative pixels dragged
-                    const ox = info?.offset?.x ?? 0;
-                    const oy = info?.offset?.y ?? 0;
-                    const deltaX = ox / (scaleLocal || 1);
-                    const deltaY = oy / (scaleLocal || 1);
-                    tempOffsetsRef.current[task.id] = { x: deltaX, y: deltaY };
+                    const meta = dragMetaRef.current;
+                    const point = extractClientPoint(e);
+                    const canvasPoint = point ? getCanvasPoint(point.x, point.y) : null;
+                    if (meta?.taskId === task.id && canvasPoint) {
+                      const nextLeft = canvasPoint.x - meta.pointerOffset.x;
+                      const nextTop = canvasPoint.y - meta.pointerOffset.y;
+                      tempOffsetsRef.current[task.id] = {
+                        x: nextLeft - meta.startPos.x,
+                        y: nextTop - meta.startPos.y,
+                      };
+                    } else {
+                      const scaleLocal = currentScaleRef.current || scale || 1;
+                      const ox = info?.offset?.x ?? 0;
+                      const oy = info?.offset?.y ?? 0;
+                      const deltaX = ox / (scaleLocal || 1);
+                      const deltaY = oy / (scaleLocal || 1);
+                      tempOffsetsRef.current[task.id] = { x: deltaX, y: deltaY };
+                    }
                     // debug: log live offsets to help verify behavior
-                    try { console.debug('dragging', { id: task.id, deltaX, deltaY, scaleLocal }); } catch {}
+                    try { console.debug('dragging', { id: task.id, offsets: tempOffsetsRef.current[task.id] }); } catch {}
                     setDragTick(t => t + 1);
                   }}
                   onClick={(e) => {
@@ -423,51 +484,76 @@ export default function Index() {
                   onPointerDown={(e) => {
                     // prevent pointer events from bubbling to the background panning handler
                     try { (e as unknown as Event).stopPropagation(); } catch {}
+                    const point = extractClientPoint(e);
+                    const canvasPoint = point ? getCanvasPoint(point.x, point.y) : null;
+                    dragMetaRef.current = {
+                      taskId: task.id,
+                      pointerOffset: {
+                        x: canvasPoint ? canvasPoint.x - task.position.x : 0,
+                        y: canvasPoint ? canvasPoint.y - task.position.y : 0,
+                      },
+                      startPos: { ...task.position },
+                    };
                   }}
                   onDragEnd={(e, info) => {
                     try { (e as unknown as Event).stopPropagation(); } catch {}
-                    if (!viewportRef.current) { setDraggedTask(null); return; }
-                    const scaleLocal = currentScaleRef.current || scale || 1;
-                    // Prefer reading the element's computed transform (matches visual translation)
-                    // fallback to info.offset if transform isn't available
-                    const target = (e as any).target as HTMLElement | null;
-                    let tx = 0;
-                    let ty = 0;
-                    try {
-                      if (target) {
-                        const cs = window.getComputedStyle(target);
-                        const tr = cs.transform || (cs as any).webkitTransform;
-                        if (tr && tr !== 'none') {
-                          const m = tr.match(/matrix.*\((.+)\)/);
-                          if (m) {
-                            const parts = m[1].split(',').map(s => parseFloat(s.trim()));
-                            if (parts.length >= 6) {
-                              tx = parts[4];
-                              ty = parts[5];
-                            } else if (parts.length === 16) {
-                              tx = parts[12];
-                              ty = parts[13];
+                    if (!viewportRef.current) { setDraggedTask(null); dragMetaRef.current = null; return; }
+                    const meta = dragMetaRef.current;
+                    const point = extractClientPoint(e);
+                    const canvasPoint = point ? getCanvasPoint(point.x, point.y) : null;
+                    let nextPosition: { x: number; y: number } | null = null;
+                    if (meta?.taskId === task.id && canvasPoint) {
+                      nextPosition = {
+                        x: Math.max(0, Math.round(canvasPoint.x - meta.pointerOffset.x)),
+                        y: Math.max(0, Math.round(canvasPoint.y - meta.pointerOffset.y)),
+                      };
+                    } else {
+                      const scaleLocal = currentScaleRef.current || scale || 1;
+                      const target = (e as any).target as HTMLElement | null;
+                      let tx = 0;
+                      let ty = 0;
+                      try {
+                        if (target) {
+                          const cs = window.getComputedStyle(target);
+                          const tr = cs.transform || (cs as any).webkitTransform;
+                          if (tr && tr !== 'none') {
+                            const m = tr.match(/matrix.*\((.+)\)/);
+                            if (m) {
+                              const parts = m[1].split(',').map(s => parseFloat(s.trim()));
+                              if (parts.length >= 6) {
+                                tx = parts[4];
+                                ty = parts[5];
+                              } else if (parts.length === 16) {
+                                tx = parts[12];
+                                ty = parts[13];
+                              }
                             }
                           }
                         }
+                      } catch (err) {
+                        tx = 0;
+                        ty = 0;
                       }
-                    } catch (err) {
-                      tx = 0;
-                      ty = 0;
+                      if (!tx && !ty) {
+                        const ox = info?.offset?.x ?? 0;
+                        const oy = info?.offset?.y ?? 0;
+                        tx = ox;
+                        ty = oy;
+                      }
+                      const deltaX = tx / (scaleLocal || 1);
+                      const deltaY = ty / (scaleLocal || 1);
+                      nextPosition = {
+                        x: Math.max(0, Math.round(task.position.x + deltaX)),
+                        y: Math.max(0, Math.round(task.position.y + deltaY)),
+                      };
                     }
-                    if (!tx && !ty) {
-                      const ox = info?.offset?.x ?? 0;
-                      const oy = info?.offset?.y ?? 0;
-                      tx = ox;
-                      ty = oy;
+                    if (nextPosition) {
+                      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, position: nextPosition! } : t));
+                      try { console.debug('dragEnd commit', { id: task.id, nextPosition }); } catch {}
                     }
-                    const deltaX = tx / (scaleLocal || 1);
-                    const deltaY = ty / (scaleLocal || 1);
-                    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, position: { x: Math.max(0, Math.round(t.position.x + deltaX)), y: Math.max(0, Math.round(t.position.y + deltaY)) } } : t));
-                    // debug: log final commit
-                    try { console.debug('dragEnd commit', { id: task.id, deltaX, deltaY, scaleLocal }); } catch {}
                     // clear temporary offset for this task and re-render
                     delete tempOffsetsRef.current[task.id];
+                    dragMetaRef.current = null;
                     setDragTick(t => t + 1);
                     setDraggedTask(null);
                   }}
