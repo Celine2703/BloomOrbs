@@ -17,6 +17,10 @@ import ConnectionLine from "./index/ConnectionLine";
 const STATUSES: Status[] = ["draft", "to-do", "doing", "done"];
 const PRIORITIES: Priority[] = ["low", "medium", "high", "critical"];
 
+// Task visual constants (should match TaskCard dimensions)
+const TASK_WIDTH = 420;
+const TASK_HEIGHT = 64;
+
 // Edge and Axis types are imported from ./index/types
 
 
@@ -82,8 +86,12 @@ export default function Index() {
   const [scale, setScale] = useState<number>(1);
   const currentPositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const viewportRef = useRef<HTMLDivElement | null>(null);
+  const didRebaseRef = useRef(false);
   const isPanningRef = useRef(false);
   const panStartRef = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
+  // temporary offsets applied during an in-progress drag (canvas units)
+  const tempOffsetsRef = useRef<Record<string, { x: number; y: number }>>({});
+  const [, setDragTick] = useState(0);
 
   const axisById = Object.fromEntries(axes.map(a => [a.id, a]));
   const taskById = Object.fromEntries(tasks.map(t => [t.id, t]));
@@ -93,28 +101,56 @@ export default function Index() {
   useEffect(() => {
     if (!viewportRef.current) return;
     const vp = viewportRef.current;
-    // center on average of existing tasks so initial tasks are visible
-    if (tasks.length > 0) {
-      const avgX = Math.round(tasks.reduce((s, t) => s + t.position.x, 0) / tasks.length);
-      const avgY = Math.round(tasks.reduce((s, t) => s + t.position.y, 0) / tasks.length);
-      const s = currentScaleRef.current || scale || 1;
-      vp.scrollLeft = Math.max(0, Math.round(avgX * s - vp.clientWidth / 2));
-      vp.scrollTop = Math.max(0, Math.round(avgY * s - vp.clientHeight / 2));
+    // place existing tasks around the center of the canvas on first load
+    // so the UI starts centered rather than in the top-left.
+    const canvasCenter = { x: 10000, y: 10000 };
+    if (!didRebaseRef.current) {
+      if (tasks.length > 0) {
+        const avgX = Math.round(tasks.reduce((s, t) => s + t.position.x, 0) / tasks.length);
+        const avgY = Math.round(tasks.reduce((s, t) => s + t.position.y, 0) / tasks.length);
+        const deltaX = canvasCenter.x - avgX;
+        const deltaY = canvasCenter.y - avgY;
+        // shift tasks by delta so their centroid moves to canvas center
+        setTasks((prev) => prev.map(t => ({ ...t, position: { x: Math.max(0, t.position.x + deltaX), y: Math.max(0, t.position.y + deltaY) } })));
+        const s = currentScaleRef.current || scale || 1;
+        vp.scrollLeft = Math.max(0, Math.round(canvasCenter.x * s - vp.clientWidth / 2));
+        vp.scrollTop = Math.max(0, Math.round(canvasCenter.y * s - vp.clientHeight / 2));
+      } else {
+        vp.scrollLeft = Math.round((20000 - vp.clientWidth) / 2);
+        vp.scrollTop = Math.round((20000 - vp.clientHeight) / 2);
+      }
+      didRebaseRef.current = true;
     } else {
-      vp.scrollLeft = Math.round((20000 - vp.clientWidth) / 2);
-      vp.scrollTop = Math.round((20000 - vp.clientHeight) / 2);
+      // fallback: keep previous behavior
+      if (tasks.length > 0) {
+        const avgX = Math.round(tasks.reduce((s, t) => s + t.position.x, 0) / tasks.length);
+        const avgY = Math.round(tasks.reduce((s, t) => s + t.position.y, 0) / tasks.length);
+        const s = currentScaleRef.current || scale || 1;
+        vp.scrollLeft = Math.max(0, Math.round(avgX * s - vp.clientWidth / 2));
+        vp.scrollTop = Math.max(0, Math.round(avgY * s - vp.clientHeight / 2));
+      }
     }
   }, []);
 
   const addNewTask = () => {
     const id = `T-${Date.now().toString().slice(-6)}`;
-    // place new task at center of current viewport
-    let pos = { x: 200 + tasks.length * 40, y: 200 + (tasks.length % 5) * 40 };
+    // place new task at center of the canvas and center the viewport on it (like Reset)
+    const canvasCenter = { x: 10000, y: 10000 };
+    // Task visual size ~420x64, position is top-left; center task on canvas center
+    const taskHalfWidth = 210; // 420 / 2
+    const taskHalfHeight = 32; // 64 / 2
+    let pos = { x: Math.max(20, canvasCenter.x - taskHalfWidth), y: Math.max(20, canvasCenter.y - taskHalfHeight) };
     try {
       if (viewportRef.current) {
+        // after placing, center viewport on the new task
         const vp = viewportRef.current;
         const s = currentScaleRef.current || scale || 1;
-        pos = { x: Math.round((vp.scrollLeft + vp.clientWidth / 2) / s), y: Math.round((vp.scrollTop + vp.clientHeight / 2) / s) };
+        const left = Math.round(pos.x * s - vp.clientWidth / 2);
+        const top = Math.round(pos.y * s - vp.clientHeight / 2);
+        requestAnimationFrame(() => {
+          vp.scrollLeft = Math.max(0, left);
+          vp.scrollTop = Math.max(0, top);
+        });
       }
     } catch {}
     const newTask: Task = {
@@ -247,6 +283,9 @@ export default function Index() {
                 const canvasY = (viewportRef.current.scrollTop + clientY - rect.top) / scaleLocal;
                 try { console.debug('dblclick addTask', { clientX, clientY, rectLeft: rect.left, rectTop: rect.top, scale: scaleLocal, canvasX, canvasY }); } catch {}
                 const id = `T-${Date.now().toString().slice(-6)}`;
+                // place new task so its left area is near the cursor (not centered)
+                const leftOffset = 80; // px from left edge of task to place cursor over
+                const topOffset = 32; // half task height to roughly center vertically
                 const newTask: Task = {
                   id,
                   axisId: axes[0].id,
@@ -258,7 +297,7 @@ export default function Index() {
                   due: null,
                   description: "",
                   duration: null,
-                  position: { x: Math.max(20, Math.round(canvasX)), y: Math.max(20, Math.round(canvasY)) },
+                  position: { x: Math.max(20, Math.round(canvasX - leftOffset)), y: Math.max(20, Math.round(canvasY - topOffset)) },
                   temporary: true,
                 };
                 setTasks((prev) => [...prev, newTask]);
@@ -311,20 +350,14 @@ export default function Index() {
                   // render path and allow click to edit/remove link
                   return (
                     <g key={idx}>
-                      <ConnectionLine from={fromTask} to={toTask} containerRef={containerRef} />
+                      <ConnectionLine from={fromTask} to={toTask} offsets={tempOffsetsRef.current} />
+                      {/* clickable wide invisible path computed from task positions */}
                       <path
                         d={(() => {
-                          // recompute path same as ConnectionLine to attach events
-                          const fromEl = containerRef.current?.querySelector(`[data-task-id="${fromTask.id}"]`);
-                          const toEl = containerRef.current?.querySelector(`[data-task-id="${toTask.id}"]`);
-                          if (!fromEl || !toEl || !containerRef.current) return "";
-                          const container = containerRef.current.getBoundingClientRect();
-                          const fromRect = fromEl.getBoundingClientRect();
-                          const toRect = toEl.getBoundingClientRect();
-                          const fromX = fromRect.right - container.left;
-                          const fromY = fromRect.top + fromRect.height / 2 - container.top;
-                          const toX = toRect.left - container.left;
-                          const toY = toRect.top + toRect.height / 2 - container.top;
+                          const fromX = (fromTask.position?.x ?? 0) + (tempOffsetsRef.current[fromTask.id]?.x ?? 0) + TASK_WIDTH;
+                          const fromY = (fromTask.position?.y ?? 0) + (tempOffsetsRef.current[fromTask.id]?.y ?? 0) + TASK_HEIGHT / 2;
+                          const toX = (toTask.position?.x ?? 0) + (tempOffsetsRef.current[toTask.id]?.x ?? 0);
+                          const toY = (toTask.position?.y ?? 0) + (tempOffsetsRef.current[toTask.id]?.y ?? 0) + TASK_HEIGHT / 2;
                           const dx = toX - fromX;
                           const controlX1 = fromX + dx * 0.4;
                           const controlX2 = toX - dx * 0.4;
@@ -334,7 +367,6 @@ export default function Index() {
                         stroke="transparent"
                         strokeWidth={12}
                         onClick={() => {
-                          // simple edit: ask to remove the link
                           if (confirm('Remove this link?')) {
                             setEdges((prev) => prev.filter((e) => !(e.from === edge.from && e.to === edge.to)));
                           }
@@ -357,7 +389,19 @@ export default function Index() {
                     try { (e as unknown as Event).stopPropagation(); } catch {}
                     setDraggedTask(task.id);
                   }}
-                  onDrag={(e) => { try { (e as unknown as Event).stopPropagation(); } catch {} }}
+                  onDrag={(e, info) => {
+                    try { (e as unknown as Event).stopPropagation(); } catch {}
+                    const scaleLocal = currentScaleRef.current || scale || 1;
+                    // use info.offset which contains cumulative pixels dragged
+                    const ox = info?.offset?.x ?? 0;
+                    const oy = info?.offset?.y ?? 0;
+                    const deltaX = ox / (scaleLocal || 1);
+                    const deltaY = oy / (scaleLocal || 1);
+                    tempOffsetsRef.current[task.id] = { x: deltaX, y: deltaY };
+                    // debug: log live offsets to help verify behavior
+                    try { console.debug('dragging', { id: task.id, deltaX, deltaY, scaleLocal }); } catch {}
+                    setDragTick(t => t + 1);
+                  }}
                   onClick={(e) => {
                     // shift+click to create a link from the currently selected task to this one
                     const evt = e as React.MouseEvent;
@@ -371,6 +415,10 @@ export default function Index() {
                     }
                     // otherwise select this task (do not open editor on single click)
                     setSelectedTask(task.id);
+                    // if the side panel is already open (editMode), change which task is being edited
+                    if (editMode) {
+                      setEditedTask(task);
+                    }
                   }}
                   onPointerDown={(e) => {
                     // prevent pointer events from bubbling to the background panning handler
@@ -380,7 +428,8 @@ export default function Index() {
                     try { (e as unknown as Event).stopPropagation(); } catch {}
                     if (!viewportRef.current) { setDraggedTask(null); return; }
                     const scaleLocal = currentScaleRef.current || scale || 1;
-                    // try to read the transform applied by framer-motion during drag
+                    // Prefer reading the element's computed transform (matches visual translation)
+                    // fallback to info.offset if transform isn't available
                     const target = (e as any).target as HTMLElement | null;
                     let tx = 0;
                     let ty = 0;
@@ -389,7 +438,6 @@ export default function Index() {
                         const cs = window.getComputedStyle(target);
                         const tr = cs.transform || (cs as any).webkitTransform;
                         if (tr && tr !== 'none') {
-                          // matrix(a, b, c, d, tx, ty) or matrix3d(..., tx, ty)
                           const m = tr.match(/matrix.*\((.+)\)/);
                           if (m) {
                             const parts = m[1].split(',').map(s => parseFloat(s.trim()));
@@ -397,7 +445,6 @@ export default function Index() {
                               tx = parts[4];
                               ty = parts[5];
                             } else if (parts.length === 16) {
-                              // matrix3d
                               tx = parts[12];
                               ty = parts[13];
                             }
@@ -405,14 +452,23 @@ export default function Index() {
                         }
                       }
                     } catch (err) {
-                      // fallback: use info.offset as rough estimate
-                      tx = info?.offset?.x ?? 0;
-                      ty = info?.offset?.y ?? 0;
+                      tx = 0;
+                      ty = 0;
                     }
-                    // convert the pixel translation into canvas units
+                    if (!tx && !ty) {
+                      const ox = info?.offset?.x ?? 0;
+                      const oy = info?.offset?.y ?? 0;
+                      tx = ox;
+                      ty = oy;
+                    }
                     const deltaX = tx / (scaleLocal || 1);
                     const deltaY = ty / (scaleLocal || 1);
                     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, position: { x: Math.max(0, Math.round(t.position.x + deltaX)), y: Math.max(0, Math.round(t.position.y + deltaY)) } } : t));
+                    // debug: log final commit
+                    try { console.debug('dragEnd commit', { id: task.id, deltaX, deltaY, scaleLocal }); } catch {}
+                    // clear temporary offset for this task and re-render
+                    delete tempOffsetsRef.current[task.id];
+                    setDragTick(t => t + 1);
                     setDraggedTask(null);
                   }}
                   style={{ position: "absolute", left: task.position.x, top: task.position.y, zIndex: 10 }}
@@ -444,9 +500,9 @@ export default function Index() {
         </div>
       </main>
 
-      {/* Side panel */}
+      {/* Side panel: only show when editMode is true (double-click or Add opens it). Single-click selects only. */}
       <AnimatePresence>
-        {selectedTaskData && (
+        {editMode && selectedTaskData && (
           <SidePanel
             selectedTaskData={selectedTaskData}
             editedTask={editedTask}

@@ -1,28 +1,30 @@
 import React from "react";
 import type { Task } from "./types";
 
+// Constants matching TaskCard visual size
+const TASK_WIDTH = 420;
+const TASK_HEIGHT = 64; // h-16
+
 export default function ConnectionLine({
   from,
   to,
-  containerRef,
+  offsets,
 }: {
   from: Task;
   to: Task;
-  containerRef: React.RefObject<HTMLDivElement>;
+  // offsets is a map of temporary drag offsets (canvas units)
+  offsets?: Record<string, { x: number; y: number }>;
 }) {
-  const fromEl = containerRef.current?.querySelector(`[data-task-id="${from.id}"]`);
-  const toEl = containerRef.current?.querySelector(`[data-task-id="${to.id}"]`);
+  // Use task.position coordinates directly so links render immediately
+  // Positions are in canvas coordinates; the SVG shares the same coordinate space.
+  if (!from?.position || !to?.position) return null;
 
-  if (!fromEl || !toEl || !containerRef.current) return null;
-
-  const container = containerRef.current.getBoundingClientRect();
-  const fromRect = fromEl.getBoundingClientRect();
-  const toRect = toEl.getBoundingClientRect();
-
-  const fromX = fromRect.right - container.left;
-  const fromY = fromRect.top + fromRect.height / 2 - container.top;
-  const toX = toRect.left - container.left;
-  const toY = toRect.top + toRect.height / 2 - container.top;
+  const offFrom = offsets?.[from.id];
+  const offTo = offsets?.[to.id];
+  const fromX = (from.position.x + (offFrom?.x ?? 0)) + TASK_WIDTH; // right edge of source
+  const fromY = (from.position.y + (offFrom?.y ?? 0)) + TASK_HEIGHT / 2;
+  const toX = (to.position.x + (offTo?.x ?? 0)); // left edge of target
+  const toY = (to.position.y + (offTo?.y ?? 0)) + TASK_HEIGHT / 2;
 
   const dx = toX - fromX;
   const controlX1 = fromX + dx * 0.4;
