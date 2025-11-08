@@ -103,6 +103,13 @@ export default function Index() {
   const didRebaseRef = useRef(false);
   const isPanningRef = useRef(false);
   const panStartRef = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
+  // temporary offsets used while dragging so connections can render live
+  const tempOffsetsRef = useRef<Record<string, { x: number; y: number }>>({});
+  const [, setDragTick] = useState(0);
+  // pointer offset within the task recorded at drag start (canvas units)
+  const pointerOffsetsRef = useRef<Record<string, { x: number; y: number }>>({});
+  // record the task's position at the start of a drag to avoid race conditions
+  const dragStartPosRef = useRef<Record<string, { x: number; y: number }>>({});
   const dragStateRef = useRef<{
     taskId: string;
     pointerId: number | null;
@@ -114,7 +121,17 @@ export default function Index() {
   const taskById = Object.fromEntries(tasks.map(t => [t.id, t]));
   const selectedTaskData = selectedTask ? taskById[selectedTask] : null;
 
-  const beginDrag = useCallback((task: Task, nativeEvent: Event) => {
+  const getCanvasPoint = useCallback((clientX: number, clientY: number) => {
+    if (!viewportRef.current) return null;
+    const rect = viewportRef.current.getBoundingClientRect();
+    const currentScale = currentScaleRef.current || scale || 1;
+    return {
+      x: (viewportRef.current.scrollLeft + clientX - rect.left) / currentScale,
+      y: (viewportRef.current.scrollTop + clientY - rect.top) / currentScale,
+    };
+  }, [scale]);
+
+  const beginDrag = useCallback((task: Task, nativeEvent: Event, hostElement?: Element | null) => {
     try {
       nativeEvent.stopPropagation?.();
       nativeEvent.preventDefault?.();
@@ -136,6 +153,8 @@ export default function Index() {
       },
     };
     setDraggedTask(task.id);
+    // record the start position for this drag
+    try { dragStartPosRef.current[task.id] = { x: task.position.x, y: task.position.y }; } catch {}
 
     let cleanup: (() => void) | null = null;
 
@@ -181,17 +200,20 @@ export default function Index() {
     };
 
     cleanup = () => {
-      window.removeEventListener('pointermove', handleMove as EventListener);
-      window.removeEventListener('pointerup', handleUp as EventListener);
-      window.removeEventListener('pointercancel', handleUp as EventListener);
-      window.removeEventListener('mousemove', handleMove as EventListener);
-      window.removeEventListener('mouseup', handleUp as EventListener);
-      window.removeEventListener('touchmove', handleMove as EventListener);
-      window.removeEventListener('touchend', handleUp as EventListener);
-      window.removeEventListener('touchcancel', handleUp as EventListener);
+      const target = hostElement ?? window;
+      try { (target as any).removeEventListener('pointermove', handleMove as EventListener); } catch {}
+      try { (target as any).removeEventListener('pointerup', handleUp as EventListener); } catch {}
+      try { (target as any).removeEventListener('pointercancel', handleUp as EventListener); } catch {}
+      try { (target as any).removeEventListener('mousemove', handleMove as EventListener); } catch {}
+      try { (target as any).removeEventListener('mouseup', handleUp as EventListener); } catch {}
+      try { (target as any).removeEventListener('touchmove', handleMove as EventListener); } catch {}
+      try { (target as any).removeEventListener('touchend', handleUp as EventListener); } catch {}
+      try { (target as any).removeEventListener('touchcancel', handleUp as EventListener); } catch {}
       dragStateRef.current = null;
+      try { delete dragStartPosRef.current[task.id]; } catch {}
       setDraggedTask(null);
       cleanupDragListenersRef.current = null;
+  try { /* cleanup */ } catch {}
     };
 
     cleanupDragListenersRef.current?.();
@@ -199,28 +221,19 @@ export default function Index() {
       cleanupDragListenersRef.current = cleanup;
     }
 
+    const target = hostElement ?? window;
     if (usePointerEvents) {
-      window.addEventListener('pointermove', handleMove as EventListener, { passive: false });
-      window.addEventListener('pointerup', handleUp as EventListener);
-      window.addEventListener('pointercancel', handleUp as EventListener);
+      try { (target as any).addEventListener('pointermove', handleMove as EventListener, { passive: false }); } catch {}
+      try { (target as any).addEventListener('pointerup', handleUp as EventListener); } catch {}
+      try { (target as any).addEventListener('pointercancel', handleUp as EventListener); } catch {}
     } else {
-      window.addEventListener('mousemove', handleMove as EventListener);
-      window.addEventListener('mouseup', handleUp as EventListener);
-      window.addEventListener('touchmove', handleMove as EventListener, { passive: false });
-      window.addEventListener('touchend', handleUp as EventListener);
-      window.addEventListener('touchcancel', handleUp as EventListener);
+      try { (target as any).addEventListener('mousemove', handleMove as EventListener); } catch {}
+      try { (target as any).addEventListener('mouseup', handleUp as EventListener); } catch {}
+      try { (target as any).addEventListener('touchmove', handleMove as EventListener, { passive: false }); } catch {}
+      try { (target as any).addEventListener('touchend', handleUp as EventListener); } catch {}
+      try { (target as any).addEventListener('touchcancel', handleUp as EventListener); } catch {}
     }
   }, [getCanvasPoint]);
-
-  const getCanvasPoint = useCallback((clientX: number, clientY: number) => {
-    if (!viewportRef.current) return null;
-    const rect = viewportRef.current.getBoundingClientRect();
-    const currentScale = currentScaleRef.current || scale || 1;
-    return {
-      x: (viewportRef.current.scrollLeft + clientX - rect.left) / currentScale,
-      y: (viewportRef.current.scrollTop + clientY - rect.top) / currentScale,
-    };
-  }, [scale]);
 
   // center viewport on load so horizontal panning feels natural
   useEffect(() => {
@@ -407,14 +420,18 @@ export default function Index() {
               onDoubleClick={(e) => {
                 // double-click on background to add task
                 if (!viewportRef.current) return;
-                // if click was on a task or link, ignore here (events should have stopped propagation)
+                // if double-click happened on a task or a connection path, ignore here
+                const targetEl = (e.target as Element) || null;
+                if (targetEl && (targetEl.closest('[data-task-id]') || targetEl.closest('path') || targetEl.closest('g'))) {
+                  return;
+                }
                 const rect = viewportRef.current.getBoundingClientRect();
                 const scaleLocal = currentScaleRef.current || scale || 1;
                 const clientX = (e as React.MouseEvent).clientX ?? 0;
                 const clientY = (e as React.MouseEvent).clientY ?? 0;
                 const canvasX = (viewportRef.current.scrollLeft + clientX - rect.left) / scaleLocal;
                 const canvasY = (viewportRef.current.scrollTop + clientY - rect.top) / scaleLocal;
-                try { console.debug('dblclick addTask', { clientX, clientY, rectLeft: rect.left, rectTop: rect.top, scale: scaleLocal, canvasX, canvasY }); } catch {}
+                try { /* dblclick debug removed */ } catch {}
                 const id = `T-${Date.now().toString().slice(-6)}`;
                 // place new task so its left area is near the cursor (not centered)
                 const leftOffset = 80; // px from left edge of task to place cursor over
@@ -484,14 +501,14 @@ export default function Index() {
                   // render path and allow click to edit/remove link
                   return (
                     <g key={idx}>
-                      <ConnectionLine from={fromTask} to={toTask} />
+                      <ConnectionLine from={fromTask} to={toTask} offsets={tempOffsetsRef.current} />
                       {/* clickable wide invisible path computed from task positions */}
                       <path
                         d={(() => {
-                          const fromX = (fromTask.position?.x ?? 0) + TASK_WIDTH;
-                          const fromY = (fromTask.position?.y ?? 0) + TASK_HEIGHT / 2;
-                          const toX = (toTask.position?.x ?? 0);
-                          const toY = (toTask.position?.y ?? 0) + TASK_HEIGHT / 2;
+                          const fromX = (fromTask.position?.x ?? 0) + (tempOffsetsRef.current[fromTask.id]?.x ?? 0) + TASK_WIDTH;
+                          const fromY = (fromTask.position?.y ?? 0) + (tempOffsetsRef.current[fromTask.id]?.y ?? 0) + TASK_HEIGHT / 2;
+                          const toX = (toTask.position?.x ?? 0) + (tempOffsetsRef.current[toTask.id]?.x ?? 0);
+                          const toY = (toTask.position?.y ?? 0) + (tempOffsetsRef.current[toTask.id]?.y ?? 0) + TASK_HEIGHT / 2;
                           const dx = toX - fromX;
                           const controlX1 = fromX + dx * 0.4;
                           const controlX2 = toX - dx * 0.4;
@@ -502,7 +519,6 @@ export default function Index() {
                         strokeWidth={12}
                         onClick={() => {
                           if (confirm('Remove this link?')) {
-                            setEdges((prev) => prev.filter((e) => !(e.from === edge.from && e.to === edge.to)));
                           }
                         }}
                         style={{ cursor: 'pointer', pointerEvents: 'auto' }}
@@ -517,6 +533,46 @@ export default function Index() {
                 <motion.div
                   key={task.id}
                   data-task-id={task.id}
+                  onDoubleClick={(e: React.MouseEvent) => {
+                    try { (e as unknown as Event).stopPropagation(); } catch {}
+                    setSelectedTask(task.id);
+                    setEditedTask(task);
+                    setEditMode(true);
+                  }}
+                  onPointerDown={(e: React.PointerEvent) => {
+                    try { e.stopPropagation(); } catch {}
+                    try { /* pointerdown debug removed */ } catch {}
+                    setDraggedTask(task.id);
+                    try {
+                      // ensure pointer capture so this element receives the pointerup
+                      try { (e.currentTarget as Element).setPointerCapture?.(e.pointerId); } catch {}
+                      // start the manual drag which updates tasks live; attach listeners to this element
+                      beginDrag(task, e.nativeEvent as unknown as Event, e.currentTarget as Element);
+                      // if beginDrag set cleanup, log it
+                    } catch (err) {
+                      try { /* error swallowed */ } catch {}
+                    }
+                  }}
+                  onPointerUp={(e: React.PointerEvent) => {
+                    try { e.stopPropagation(); } catch {}
+                    try { /* pointerup debug removed */ } catch {}
+                    try { (e.currentTarget as Element).releasePointerCapture?.(e.pointerId); } catch {}
+                    // ensure listeners cleaned up if something didn't run on window up
+                    try { cleanupDragListenersRef.current?.(); } catch (err) { try { /* cleanup error swallowed */ } catch {} }
+                    // make sure we clear any lingering drag state
+                    try { dragStateRef.current = null; } catch {}
+                    try { delete dragStartPosRef.current[task.id]; } catch {}
+                    setDraggedTask(null);
+                  }}
+                  onPointerCancel={(e: React.PointerEvent) => {
+                    try { e.stopPropagation(); } catch {}
+                    try { /* pointercancel debug removed */ } catch {}
+                    try { cleanupDragListenersRef.current?.(); } catch {}
+                    try { (e.currentTarget as Element).releasePointerCapture?.(e.pointerId); } catch {}
+                    try { dragStateRef.current = null; } catch {}
+                    try { delete dragStartPosRef.current[task.id]; } catch {}
+                    setDraggedTask(null);
+                  }}
                   onClick={(e) => {
                     // shift+click to create a link from the currently selected task to this one
                     const evt = e as React.MouseEvent;
@@ -535,17 +591,13 @@ export default function Index() {
                       setEditedTask(task);
                     }
                   }}
-                  onPointerDown={(e) => {
-                    const nativeEvent = (e as unknown as { nativeEvent?: Event }).nativeEvent ?? (e as unknown as Event);
-                    beginDrag(task, nativeEvent);
+                  // when using manual drag, prevent the background panning from starting here
+                  onPointerUp={(e) => {
+                    try { (e as unknown as Event).stopPropagation(); } catch {}
+                    // ensure draggedTask cleared in case beginDrag didn't already clear it
+                    setDraggedTask(null);
                   }}
-                  style={{
-                    position: "absolute",
-                    left: task.position.x,
-                    top: task.position.y,
-                    zIndex: 10,
-                    cursor: draggedTask === task.id ? "grabbing" : "grab",
-                  }}
+                  style={{ position: "absolute", left: task.position.x, top: task.position.y, zIndex: 10 }}
                 >
                   <TaskCard
                     task={task}
