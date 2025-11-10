@@ -110,6 +110,17 @@ export default function Index() {
   const pointerOffsetsRef = useRef<Record<string, { x: number; y: number }>>({});
   // record the task's position at the start of a drag to avoid race conditions
   const dragStartPosRef = useRef<Record<string, { x: number; y: number }>>({});
+  // link creation state when user drags from a task side to another task
+  const linkStateRef = useRef<null | { fromId: string; fromSide: 'left' | 'right'; start: { x: number; y: number } }>(null);
+  const [tempLink, setTempLink] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
+  // hover state to show subtle visual when pointer is in the link-creation zone of a task
+  const [hoverLinkZone, setHoverLinkZone] = useState<{ taskId: string; side: 'left' | 'right' } | null>(null);
+  // while dragging a link, highlight potential target task and track pointer screen coords
+  const [hoverTargetId, setHoverTargetId] = useState<string | null>(null);
+  const [pointerScreen, setPointerScreen] = useState<{ x: number; y: number } | null>(null);
+  // hovered task / handle for showing handles & tooltips
+  const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null);
+  const [hoveredHandle, setHoveredHandle] = useState<{ taskId: string; side: 'left' | 'right' } | null>(null);
   const dragStateRef = useRef<{
     taskId: string;
     pointerId: number | null;
@@ -235,6 +246,56 @@ export default function Index() {
     }
   }, [getCanvasPoint]);
 
+  // helper to start creating a link from a task side
+  const startLinkFrom = useCallback((task: Task, side: 'left' | 'right', host: Element, nativeEvent?: Event) => {
+    const start = { x: task.position.x + (side === 'left' ? 0 : TASK_WIDTH), y: task.position.y + TASK_HEIGHT / 2 };
+    linkStateRef.current = { fromId: task.id, fromSide: side, start };
+    setTempLink({ x1: start.x, y1: start.y, x2: start.x, y2: start.y });
+    try { (host as Element).setPointerCapture?.((nativeEvent as any)?.pointerId ?? 0); } catch {}
+
+    const move = (ev: Event) => {
+      const p = extractClientPoint(ev);
+      if (!p) return;
+      const c = getCanvasPoint(p.x, p.y);
+      if (!c) return;
+      setTempLink(prev => prev ? { ...prev, x2: c.x, y2: c.y } : null);
+      // update pointer screen coordinates for tooltip
+      setPointerScreen({ x: p.x, y: p.y });
+      // highlight potential target under pointer
+      const target = tasks.find(t => {
+        if (t.id === task.id) return false;
+        return c.x >= t.position.x && c.x <= t.position.x + TASK_WIDTH && c.y >= t.position.y && c.y <= t.position.y + TASK_HEIGHT;
+      });
+      setHoverTargetId(target ? target.id : null);
+    };
+
+    const up = (ev: Event) => {
+      try { (host as Element).releasePointerCapture?.((ev as any).pointerId); } catch {}
+      const p = extractClientPoint(ev);
+      const c = p ? getCanvasPoint(p.x, p.y) : null;
+      if (c && linkStateRef.current) {
+        // capture fromId locally so async/react callbacks don't observe a cleared ref
+        const fromId = linkStateRef.current.fromId;
+        const target = tasks.find(t => {
+          if (t.id === fromId) return false;
+          return c.x >= t.position.x && c.x <= t.position.x + TASK_WIDTH && c.y >= t.position.y && c.y <= t.position.y + TASK_HEIGHT;
+        });
+        if (target) {
+          setEdges(prev => (prev.some(e => e.from === fromId && e.to === target.id) ? prev : [...prev, { from: fromId, to: target.id }]));
+        }
+      }
+      setTempLink(null);
+      linkStateRef.current = null;
+      setHoverTargetId(null);
+      setPointerScreen(null);
+      try { host.removeEventListener('pointermove', move as EventListener); } catch {}
+      try { host.removeEventListener('pointerup', up as EventListener); } catch {}
+    };
+
+    try { host.addEventListener('pointermove', move as EventListener); } catch {}
+    try { host.addEventListener('pointerup', up as EventListener); } catch {}
+  }, [getCanvasPoint, tasks]);
+
   // center viewport on load so horizontal panning feels natural
   useEffect(() => {
     if (!viewportRef.current) return;
@@ -275,6 +336,37 @@ export default function Index() {
       cleanupDragListenersRef.current?.();
     };
   }, []);
+
+  // while user is creating a link, disable text selection and change cursor to crosshair
+  useEffect(() => {
+    const prevSelect = document.body.style.userSelect;
+    const prevCursor = document.body.style.cursor;
+    if (tempLink) {
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'crosshair';
+    } else {
+      document.body.style.userSelect = prevSelect || '';
+      document.body.style.cursor = prevCursor || '';
+    }
+    return () => {
+      document.body.style.userSelect = prevSelect || '';
+      document.body.style.cursor = prevCursor || '';
+    };
+  }, [tempLink]);
+
+  // cancel link creation with Escape
+  useEffect(() => {
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape' && tempLink) {
+        setTempLink(null);
+        linkStateRef.current = null;
+        setHoverTargetId(null);
+        setPointerScreen(null);
+      }
+    };
+    if (tempLink) document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('keydown', onKey); };
+  }, [tempLink]);
 
   const addNewTask = () => {
     const id = `T-${Date.now().toString().slice(-6)}`;
@@ -526,7 +618,34 @@ export default function Index() {
                     </g>
                   );
                 })}
+                {/* temporary link while creating a connection */}
+                {tempLink && (
+                  <path
+                    d={(() => {
+                      const fromX = tempLink.x1;
+                      const fromY = tempLink.y1;
+                      const toX = tempLink.x2;
+                      const toY = tempLink.y2;
+                      const dx = toX - fromX;
+                      const controlX1 = fromX + dx * 0.3;
+                      const controlX2 = toX - dx * 0.3;
+                      return `M ${fromX} ${fromY} C ${controlX1} ${fromY}, ${controlX2} ${toY}, ${toX} ${toY}`;
+                    })()}
+                    stroke="#2563eb"
+                    strokeWidth={2}
+                    fill="none"
+                    style={{ pointerEvents: 'none' }}
+                  />
+                )}
               </svg>
+              {/* helper tooltip shown near pointer while creating a link */}
+              {tempLink && pointerScreen && (
+                <div style={{ position: 'fixed', left: pointerScreen.x + 12, top: pointerScreen.y + 12, zIndex: 9999, pointerEvents: 'none' }}>
+                  <div style={{ background: 'rgba(15,23,42,0.9)', color: 'white', padding: '6px 8px', borderRadius: 6, fontSize: 12, boxShadow: '0 6px 18px rgba(2,6,23,0.4)' }}>
+                    {hoverTargetId ? 'Release to connect' : 'Drag to create a link'}
+                  </div>
+                </div>
+              )}
 
               {/* Tasks */}
               {filteredTasks.map(task => (
@@ -539,34 +658,84 @@ export default function Index() {
                     setEditedTask(task);
                     setEditMode(true);
                   }}
+                  onPointerEnter={() => { try { setHoveredTaskId(task.id); } catch {} }}
+                  onPointerLeave={() => { try { if (hoveredTaskId === task.id) setHoveredTaskId(null); if (hoverLinkZone?.taskId === task.id) setHoverLinkZone(null); } catch {} }}
                   onPointerDown={(e: React.PointerEvent) => {
                     try { e.stopPropagation(); } catch {}
-                    try { /* pointerdown debug removed */ } catch {}
-                    setDraggedTask(task.id);
-                    try {
-                      // ensure pointer capture so this element receives the pointerup
-                      try { (e.currentTarget as Element).setPointerCapture?.(e.pointerId); } catch {}
-                      // start the manual drag which updates tasks live; attach listeners to this element
-                      beginDrag(task, e.nativeEvent as unknown as Event, e.currentTarget as Element);
-                      // if beginDrag set cleanup, log it
-                    } catch (err) {
-                      try { /* error swallowed */ } catch {}
+                    const pt = extractClientPoint(e.nativeEvent as unknown as Event);
+                    const canvasPt = pt ? getCanvasPoint(pt.x, pt.y) : null;
+                    const HANDLE_ZONE = 20;
+                    if (canvasPt) {
+                      const localX = Math.round(canvasPt.x - task.position.x);
+                      if (localX <= HANDLE_ZONE || localX >= TASK_WIDTH - HANDLE_ZONE) {
+                        // start link creation immediately so the temporary trace follows the pointer
+                        const side: 'left' | 'right' = localX <= HANDLE_ZONE ? 'left' : 'right';
+                        const startPoint = { x: task.position.x + (side === 'left' ? 0 : TASK_WIDTH), y: task.position.y + TASK_HEIGHT / 2 };
+                        linkStateRef.current = { fromId: task.id, fromSide: side, start: startPoint };
+                        setTempLink({ x1: startPoint.x, y1: startPoint.y, x2: canvasPt.x, y2: canvasPt.y });
+                        const host = viewportRef.current ?? (e.currentTarget as Element);
+                        try { (host as any).setPointerCapture?.(e.pointerId); } catch {}
+                        const move = (ev: Event) => {
+                          const p = extractClientPoint(ev);
+                          if (!p) return;
+                          const c = getCanvasPoint(p.x, p.y);
+                          if (!c) return;
+                          setTempLink(prev => prev ? { ...prev, x2: c.x, y2: c.y } : null);
+                        };
+                        const up = (ev: Event) => {
+                          try { (host as any).releasePointerCapture?.((ev as any).pointerId); } catch {}
+                          const p = extractClientPoint(ev);
+                          const c = p ? getCanvasPoint(p.x, p.y) : null;
+                          if (c && linkStateRef.current) {
+                            const fromId = linkStateRef.current.fromId;
+                            const target = tasks.find(t => {
+                              if (t.id === fromId) return false;
+                              const rx = t.position.x;
+                              const ry = t.position.y;
+                              return c.x >= rx && c.x <= rx + TASK_WIDTH && c.y >= ry && c.y <= ry + TASK_HEIGHT;
+                            });
+                            if (target) {
+                              setEdges(prev => (prev.some(e => e.from === fromId && e.to === target.id) ? prev : [...prev, { from: fromId, to: target.id }]));
+                            }
+                          }
+                          setTempLink(null);
+                          linkStateRef.current = null;
+                          try { host.removeEventListener('pointermove', move as EventListener); } catch {}
+                          try { host.removeEventListener('pointerup', up as EventListener); } catch {}
+                        };
+                        try { host.addEventListener('pointermove', move as EventListener); } catch {}
+                        try { host.addEventListener('pointerup', up as EventListener); } catch {}
+                        return;
+                      }
                     }
+                    // start normal drag
+                    try { setDraggedTask(task.id); } catch {}
+                    try { (e.currentTarget as Element).setPointerCapture?.(e.pointerId); } catch {}
+                    beginDrag(task, e.nativeEvent as unknown as Event, e.currentTarget as Element);
                   }}
+                  onPointerMove={(e: React.PointerEvent) => {
+                    // update hover indicator for link zone
+                    try { e.stopPropagation(); } catch {}
+                    if (linkStateRef.current) return; // don't update hover while actively linking
+                    const pt = extractClientPoint(e.nativeEvent as unknown as Event);
+                    const c = pt ? getCanvasPoint(pt.x, pt.y) : null;
+                    const HANDLE_ZONE = 20;
+                    if (c) {
+                      const localX = Math.round(c.x - task.position.x);
+                      if (localX <= HANDLE_ZONE) {
+                        setHoverLinkZone({ taskId: task.id, side: 'left' });
+                        return;
+                      } else if (localX >= TASK_WIDTH - HANDLE_ZONE) {
+                        setHoverLinkZone({ taskId: task.id, side: 'right' });
+                        return;
+                      }
+                    }
+                    // if pointer not in edge zone for this task, clear only if we previously hovered this task
+                    if (hoverLinkZone?.taskId === task.id) setHoverLinkZone(null);
+                  }}
+                  // show handles when task hovered
                   onPointerUp={(e: React.PointerEvent) => {
-                    try { e.stopPropagation(); } catch {}
-                    try { /* pointerup debug removed */ } catch {}
-                    try { (e.currentTarget as Element).releasePointerCapture?.(e.pointerId); } catch {}
-                    // ensure listeners cleaned up if something didn't run on window up
-                    try { cleanupDragListenersRef.current?.(); } catch (err) { try { /* cleanup error swallowed */ } catch {} }
-                    // make sure we clear any lingering drag state
-                    try { dragStateRef.current = null; } catch {}
-                    try { delete dragStartPosRef.current[task.id]; } catch {}
-                    setDraggedTask(null);
-                  }}
-                  onPointerCancel={(e: React.PointerEvent) => {
-                    try { e.stopPropagation(); } catch {}
-                    try { /* pointercancel debug removed */ } catch {}
+                    try { (e as unknown as Event).stopPropagation(); } catch {}
                     try { cleanupDragListenersRef.current?.(); } catch {}
                     try { (e.currentTarget as Element).releasePointerCapture?.(e.pointerId); } catch {}
                     try { dragStateRef.current = null; } catch {}
@@ -591,20 +760,50 @@ export default function Index() {
                       setEditedTask(task);
                     }
                   }}
-                  // when using manual drag, prevent the background panning from starting here
-                  onPointerUp={(e) => {
-                    try { (e as unknown as Event).stopPropagation(); } catch {}
-                    // ensure draggedTask cleared in case beginDrag didn't already clear it
-                    setDraggedTask(null);
-                  }}
-                  style={{ position: "absolute", left: task.position.x, top: task.position.y, zIndex: 10 }}
+                  // when using manual drag, background panning is prevented by pointer handlers above
+                  style={{ position: "absolute", left: task.position.x, top: task.position.y, zIndex: 10, cursor: (hoverLinkZone?.taskId === task.id ? 'crosshair' : isPanningRef.current ? 'grabbing' : 'grab') }}
                 >
+                  {/* point handles will render below; removed the transparent edge vignette per request */}
+                  {/* connection handles shown when hovering the task */}
+                  {(hoveredTaskId === task.id || hoverLinkZone?.taskId === task.id) && (
+                    <>
+                      <div
+                        onPointerDown={(e: React.PointerEvent) => {
+                          try { e.stopPropagation(); e.preventDefault(); } catch {}
+                          startLinkFrom(task, 'left', viewportRef.current ?? (e.currentTarget as Element), e.nativeEvent as unknown as Event);
+                        }}
+                        onPointerEnter={() => { try { setHoveredHandle({ taskId: task.id, side: 'left' }); } catch {} }}
+                        onPointerLeave={() => { try { if (hoveredHandle?.taskId === task.id && hoveredHandle.side === 'left') setHoveredHandle(null); } catch {} }}
+                        style={{ position: 'absolute', left: -8, top: TASK_HEIGHT / 2 - 8, width: 16, height: 16, borderRadius: 9999, background: '#fff', border: '2px solid rgba(37,99,235,0.95)', boxShadow: '0 2px 6px rgba(2,6,23,0.12)', zIndex: 22, cursor: 'crosshair' }}
+                      />
+                      <div
+                        onPointerDown={(e: React.PointerEvent) => {
+                          try { e.stopPropagation(); e.preventDefault(); } catch {}
+                          startLinkFrom(task, 'right', viewportRef.current ?? (e.currentTarget as Element), e.nativeEvent as unknown as Event);
+                        }}
+                        onPointerEnter={() => { try { setHoveredHandle({ taskId: task.id, side: 'right' }); } catch {} }}
+                        onPointerLeave={() => { try { if (hoveredHandle?.taskId === task.id && hoveredHandle.side === 'right') setHoveredHandle(null); } catch {} }}
+                        style={{ position: 'absolute', right: -8, top: TASK_HEIGHT / 2 - 8, width: 16, height: 16, borderRadius: 9999, background: '#fff', border: '2px solid rgba(37,99,235,0.95)', boxShadow: '0 2px 6px rgba(2,6,23,0.12)', zIndex: 22, cursor: 'crosshair' }}
+                      />
+                    </>
+                  )}
+                  {/* removed right-edge vignette */}
+                  {/* highlight target task when dragging a link over it */}
+                  {hoverTargetId === task.id && (
+                    <div style={{ position: 'absolute', left: 0, top: 0, width: TASK_WIDTH, height: TASK_HEIGHT, borderRadius: 8, boxShadow: '0 8px 20px rgba(37,99,235,0.12)', border: '2px solid rgba(37,99,235,0.85)', pointerEvents: 'none', zIndex: 21 }} />
+                  )}
+                  {/* tooltip when hovering a handle (non-active) */}
+                  {hoveredHandle?.taskId === task.id && !tempLink && (
+                    <div style={{ position: 'absolute', left: hoveredHandle.side === 'left' ? -120 : undefined, right: hoveredHandle.side === 'right' ? -120 : undefined, top: -28, zIndex: 30, pointerEvents: 'none' }}>
+                      <div style={{ background: 'rgba(15,23,42,0.95)', color: 'white', padding: '6px 8px', borderRadius: 6, fontSize: 12 }}>
+                        Drag from this handle to create a dependency
+                      </div>
+                    </div>
+                  )}
                   <TaskCard
                     task={task}
                     onDoubleClick={(e: React.MouseEvent) => {
-                      // prevent the background double-click handler from firing
                       try { e.stopPropagation(); } catch {}
-                      // open editor on double-click
                       setSelectedTask(task.id);
                       setEditedTask(task);
                       setEditMode(true);
