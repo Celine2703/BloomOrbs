@@ -25,6 +25,7 @@ export default function Toolbar({
   showCriticalPath,
   setShowCriticalPath,
   onAddTask,
+  onAnalyse,
 }: {
   searchQuery: string;
   setSearchQuery: (s: string) => void;
