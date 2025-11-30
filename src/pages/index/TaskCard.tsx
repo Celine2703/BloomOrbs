@@ -66,7 +66,7 @@ export default function TaskCard({
       >
         {/* Status Color Bar - Top */}
         <div 
-          className="absolute top-0 left-0 right-0 h-2 rounded-t-xl"
+          className="absolute top-0 left-0 right-0 h-4 rounded-t-xl z-10"
           style={{
             backgroundColor: status.bg,
           }}
@@ -112,10 +112,10 @@ export default function TaskCard({
 
         {/* Subtasks Button - Compact */}
         {hasSubtasks && !isSubtasksExpanded && (
-          <div className="absolute bottom-4 right-4">
+          <div className="absolute bottom-4 right-4 z-20">
             <button
               onClick={handleSubtasksClick}
-              className="flex items-center gap-1.5 px-2 py-1 bg-white/80 hover:bg-white rounded-full shadow-sm border border-gray-200 hover:border-gray-300 transition-all hover:shadow-md"
+              className="flex items-center gap-1.5 px-2 py-1 bg-white hover:bg-gray-50 rounded-full shadow-md border border-gray-200 hover:border-gray-400 transition-all hover:shadow-lg cursor-pointer"
             >
               <div className="flex items-center gap-1">
                 <div className="w-2 h-2 bg-green-500 rounded-full" />
@@ -130,7 +130,7 @@ export default function TaskCard({
 
         {/* Expanded Subtasks Panel */}
         {hasSubtasks && isSubtasksExpanded && (
-          <div className="absolute top-0 left-0 right-0 bg-white rounded-xl border-2 border-gray-300 shadow-xl z-10 max-h-80 overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 bg-white rounded-xl border-2 border-gray-300 shadow-xl z-30 max-h-80 overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b bg-gray-50">
               <div className="flex items-center gap-2">
