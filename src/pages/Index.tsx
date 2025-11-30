@@ -41,7 +41,7 @@ const initialTasks: Task[] = [
     start: null, 
     due: "2025-11-06", 
     description: "Validation of specifications.", 
-    position: { x: 80, y: 120 },
+    position: { x: 60, y: 100 },
     group: "group-1",
     subtasks: [
       { id: "ST-003-1", title: "Review requirements document", completed: true },
@@ -59,7 +59,7 @@ const initialTasks: Task[] = [
     start: "2025-11-04", 
     due: "2025-11-18", 
     description: "Define samples.", 
-    position: { x: 450, y: 80 },
+    position: { x: 480, y: 60 },
     group: "group-2",
     subtasks: [
       { id: "ST-007-1", title: "Define sample criteria", completed: false },
@@ -76,7 +76,7 @@ const initialTasks: Task[] = [
     start: null, 
     due: "2025-11-12", 
     description: "Supplier orders.", 
-    position: { x: 820, y: 140 },
+    position: { x: 900, y: 120 },
     group: "group-3",
     subtasks: [
       { id: "ST-009-1", title: "Get quotes from suppliers", completed: true },
@@ -94,7 +94,7 @@ const initialTasks: Task[] = [
     start: null, 
     due: "2025-12-05", 
     description: "Quality controls.", 
-    position: { x: 120, y: 380 },
+    position: { x: 100, y: 420 },
     group: "group-4",
     subtasks: [
       { id: "ST-012-1", title: "Remove duplicates", completed: false },
@@ -111,7 +111,7 @@ const initialTasks: Task[] = [
     start: null, 
     due: "2025-12-12", 
     description: "Linear models.", 
-    position: { x: 480, y: 420 },
+    position: { x: 520, y: 460 },
     group: "group-5",
   },
   { 
@@ -124,7 +124,7 @@ const initialTasks: Task[] = [
     start: null, 
     due: "2025-12-20", 
     description: "Introduction, methods.", 
-    position: { x: 780, y: 360 },
+    position: { x: 940, y: 400 },
     group: "group-1",
     subtasks: [
       { id: "ST-018-1", title: "Write introduction", completed: false },
@@ -142,7 +142,7 @@ const initialTasks: Task[] = [
     start: null, 
     due: "2026-01-10", 
     description: "Final submission.", 
-    position: { x: 1150, y: 320 },
+    position: { x: 1300, y: 280 },
     group: "group-2",
   },
 ];
@@ -747,8 +747,8 @@ export default function Index() {
                           if (confirm('Remove this link?')) {
                             setEdges((prev) => prev.filter((e) => !(e.from === edge.from && e.to === edge.to)));
                             toast({ 
-                              title: "Connexion supprimée", 
-                              description: `La connexion entre "${fromTask.title}" et "${toTask.title}" a été supprimée.`
+                              title: "Connection removed", 
+                              description: `Connection between "${fromTask.title}" and "${toTask.title}" has been removed.`
                             });
                           }
                         }}

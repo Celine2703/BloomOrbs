@@ -105,8 +105,8 @@ export default function SidePanel(props: {
       setEditMode(false);
       // Show confirmation toast
       toast({ 
-        title: "Tâche supprimée", 
-        description: `La tâche "${taskToDelete.title}" et ses connexions ont été supprimées.`,
+        title: "Task deleted", 
+        description: `Task "${taskToDelete.title}" and its connections have been removed.`,
         variant: "destructive"
       });
     } else {
