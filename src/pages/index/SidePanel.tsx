@@ -84,11 +84,21 @@ export default function SidePanel(props: {
   };
 
   const handleDelete = () => {
-    if (selectedTaskData) {
+    const taskToDelete = editedTask || selectedTaskData;
+    if (taskToDelete) {
+      console.log("Deleting task:", taskToDelete.id); // Debug log
       // Remove the task
-      setTasks((prev) => prev.filter((t) => t.id !== selectedTaskData.id));
+      setTasks((prev) => {
+        const newTasks = prev.filter((t) => t.id !== taskToDelete.id);
+        console.log("Tasks before:", prev.length, "after:", newTasks.length); // Debug log
+        return newTasks;
+      });
       // Remove all edges connected to this task
-      setEdges((prev) => prev.filter((e) => e.from !== selectedTaskData.id && e.to !== selectedTaskData.id));
+      setEdges((prev) => {
+        const newEdges = prev.filter((e) => e.from !== taskToDelete.id && e.to !== taskToDelete.id);
+        console.log("Edges before:", prev.length, "after:", newEdges.length); // Debug log
+        return newEdges;
+      });
       // Close the panel
       setSelectedTask(null);
       setEditedTask(null);
@@ -96,9 +106,11 @@ export default function SidePanel(props: {
       // Show confirmation toast
       toast({ 
         title: "Tâche supprimée", 
-        description: "La tâche et ses connexions ont été supprimées.",
+        description: `La tâche "${taskToDelete.title}" et ses connexions ont été supprimées.`,
         variant: "destructive"
       });
+    } else {
+      console.log("No task to delete"); // Debug log
     }
   };
 
