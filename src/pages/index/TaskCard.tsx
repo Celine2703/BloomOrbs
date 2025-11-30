@@ -66,7 +66,7 @@ export default function TaskCard({
       >
         {/* Status Color Bar - Top */}
         <div 
-          className="absolute top-0 left-0 right-0 h-3 rounded-t-xl z-0"
+          className="absolute top-0 left-0 right-0 h-12 rounded-t-xl z-0"
           style={{
             backgroundColor: status.bg,
           }}
@@ -134,7 +134,7 @@ export default function TaskCard({
         {/* Expanded Subtasks Panel */}
         {hasSubtasks && isSubtasksExpanded && (
           <div 
-            className="absolute top-0 left-0 right-0 bg-white rounded-xl border-2 border-gray-300 shadow-xl z-30 max-h-80 overflow-hidden"
+            className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl border-2 border-gray-300 shadow-xl z-30 max-h-80 overflow-hidden"
             onMouseDown={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
             onTouchStart={(e) => e.stopPropagation()}
