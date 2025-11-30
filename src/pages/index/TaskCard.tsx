@@ -1,6 +1,6 @@
-import React from "react";
-import { Check, Calendar, User } from "lucide-react";
-import type { Task, Status, Priority } from "./types";
+import React, { useState } from "react";
+import { Check, Calendar, User, ChevronDown, ChevronUp } from "lucide-react";
+import type { Task, Status, Priority, Subtask } from "./types";
 
 type StatusConfig = Record<Status, { bg: string; text: string; label: string }>;
 type PriorityConfig = Record<Priority, { bg: string; text: string; label: string }>;
@@ -14,6 +14,7 @@ export default function TaskCard({
   statusConfig,
   priorityConfig,
   groupConfig,
+  onSubtaskToggle,
 }: {
   task: Task;
   onDoubleClick: React.MouseEventHandler<HTMLDivElement>;
@@ -22,7 +23,10 @@ export default function TaskCard({
   statusConfig: StatusConfig;
   priorityConfig: PriorityConfig;
   groupConfig: GroupConfig;
+  onSubtaskToggle?: (taskId: string, subtaskId: string, completed: boolean) => void;
 }) {
+  const [isSubtasksExpanded, setIsSubtasksExpanded] = useState(false);
+  
   const status = statusConfig[task.status];
   const initials = task.assignee?.split(" ").map((n) => n[0]).join("") || "?";
   const group = task.group ? groupConfig[task.group] : { bg: "#f8f9fa", border: "#e9ecef" };
@@ -35,15 +39,26 @@ export default function TaskCard({
 
   const subtasks = task.subtasks || [];
   const hasSubtasks = subtasks.length > 0;
+  
+  const handleSubtaskToggle = (subtaskId: string, completed: boolean) => {
+    if (onSubtaskToggle) {
+      onSubtaskToggle(task.id, subtaskId, completed);
+    }
+  };
+
+  const handleSubtasksClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Empêche le onDoubleClick de la carte
+    setIsSubtasksExpanded(!isSubtasksExpanded);
+  };
 
   return (
     <div className="relative">
       {/* Main Task Card - Rectangular Design */}
       <div
         onDoubleClick={onDoubleClick}
-        className={`relative rounded-xl shadow-lg border-2 w-[320px] h-[180px] cursor-move transition-all duration-200 overflow-hidden ${
+        className={`relative rounded-xl shadow-lg border-2 w-[320px] cursor-move transition-all duration-200 overflow-visible ${
           isDragging ? "shadow-2xl scale-105 rotate-2" : "hover:shadow-xl"
-        }`}
+        } ${isSubtasksExpanded ? "h-auto" : "h-[180px]"}`}
         style={{
           backgroundColor: group.bg,
           borderColor: group.border,
@@ -88,18 +103,31 @@ export default function TaskCard({
           </div>
         </div>
 
-        {/* Bottom Progress Bar for Subtasks */}
+        {/* Bottom Subtasks Section */}
         {hasSubtasks && (
-          <div className="absolute bottom-0 left-0 right-0 p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-gray-600">
-                Sous-tâches
-              </span>
+          <div className={`${isSubtasksExpanded ? "relative" : "absolute bottom-0 left-0 right-0"} p-4`}>
+            {/* Subtasks Header - Clickable */}
+            <div 
+              className="flex items-center justify-between mb-2 cursor-pointer hover:bg-black/5 rounded p-1 -m-1 transition-colors"
+              onClick={handleSubtasksClick}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-600">
+                  Sous-tâches
+                </span>
+                {isSubtasksExpanded ? (
+                  <ChevronUp className="w-4 h-4 text-gray-500" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                )}
+              </div>
               <span className="text-xs font-bold text-gray-800">
                 {subtasks.filter(st => st.completed).length}/{subtasks.length}
               </span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            
+            {/* Progress Bar */}
+            <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
               <div
                 className="bg-green-500 h-2 rounded-full transition-all duration-300"
                 style={{
@@ -107,6 +135,37 @@ export default function TaskCard({
                 }}
               />
             </div>
+
+            {/* Expanded Subtasks List */}
+            {isSubtasksExpanded && (
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {subtasks.map((subtask) => (
+                  <div
+                    key={subtask.id}
+                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-black/5 transition-colors"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                        subtask.completed 
+                          ? 'bg-green-500 border-green-500 hover:bg-green-600' 
+                          : 'bg-white border-gray-400 hover:border-green-400'
+                      }`}
+                      onClick={() => handleSubtaskToggle(subtask.id, !subtask.completed)}
+                    >
+                      {subtask.completed && <Check className="w-3 h-3 text-white" />}
+                    </button>
+                    <span className={`flex-1 text-sm transition-all ${
+                      subtask.completed 
+                        ? 'text-gray-500 line-through' 
+                        : 'text-gray-800'
+                    }`}>
+                      {subtask.title}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

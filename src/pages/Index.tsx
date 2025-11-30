@@ -247,6 +247,25 @@ export default function Index() {
   const taskById = Object.fromEntries(tasks.map(t => [t.id, t]));
   const selectedTaskData = selectedTask ? taskById[selectedTask] : null;
 
+  // Function to handle subtask toggle
+  const handleSubtaskToggle = useCallback((taskId: string, subtaskId: string, completed: boolean) => {
+    setTasks(prevTasks => 
+      prevTasks.map(task => {
+        if (task.id === taskId) {
+          return {
+            ...task,
+            subtasks: task.subtasks?.map(subtask => 
+              subtask.id === subtaskId 
+                ? { ...subtask, completed }
+                : subtask
+            ) || []
+          };
+        }
+        return task;
+      })
+    );
+  }, []);
+
   const getCanvasPoint = useCallback((clientX: number, clientY: number) => {
     if (!viewportRef.current) return null;
     const rect = viewportRef.current.getBoundingClientRect();
@@ -928,6 +947,7 @@ export default function Index() {
                     statusConfig={statusConfig}
                     priorityConfig={priorityConfig}
                     groupConfig={groupConfig}
+                    onSubtaskToggle={handleSubtaskToggle}
                   />
                 </motion.div>
               ))}

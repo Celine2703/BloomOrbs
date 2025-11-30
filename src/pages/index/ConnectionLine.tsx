@@ -2,8 +2,8 @@ import React from "react";
 import type { Task } from "./types";
 
 // Constants matching TaskCard visual size
-const TASK_WIDTH = 420;
-const TASK_HEIGHT = 64; // h-16
+const TASK_WIDTH = 320;
+const TASK_HEIGHT = 180;
 
 export default function ConnectionLine({
   from,
