@@ -56,14 +56,21 @@ export default function TaskCard({
       {/* Main Task Card - Rectangular Design */}
       <div
         onDoubleClick={onDoubleClick}
-        className={`relative rounded-xl shadow-lg border-2 w-[320px] cursor-move transition-all duration-200 overflow-visible ${
+        className={`relative rounded-xl shadow-lg border-2 w-[320px] h-[180px] cursor-move transition-all duration-200 overflow-visible ${
           isDragging ? "shadow-2xl scale-105 rotate-2" : "hover:shadow-xl"
-        } ${isSubtasksExpanded ? "h-auto" : "h-[180px]"}`}
+        }`}
         style={{
           backgroundColor: group.bg,
           borderColor: group.border,
         }}
       >
+        {/* Status Color Bar - Top */}
+        <div 
+          className="absolute top-0 left-0 right-0 h-2 rounded-t-xl"
+          style={{
+            backgroundColor: status.bg,
+          }}
+        />
         {/* Top Header Bar */}
         <div className="flex items-start justify-between p-4 pb-2">
           {/* Left side: Status and Date */}
@@ -103,69 +110,83 @@ export default function TaskCard({
           </div>
         </div>
 
-        {/* Bottom Subtasks Section */}
-        {hasSubtasks && (
-          <div className={`${isSubtasksExpanded ? "relative" : "absolute bottom-0 left-0 right-0"} p-4`}>
-            {/* Subtasks Header - Clickable */}
-            <div 
-              className="flex items-center justify-between mb-2 cursor-pointer hover:bg-black/5 rounded p-1 -m-1 transition-colors"
+        {/* Subtasks Button - Compact */}
+        {hasSubtasks && !isSubtasksExpanded && (
+          <div className="absolute bottom-4 right-4">
+            <button
               onClick={handleSubtasksClick}
+              className="flex items-center gap-1.5 px-2 py-1 bg-white/80 hover:bg-white rounded-full shadow-sm border border-gray-200 hover:border-gray-300 transition-all hover:shadow-md"
             >
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-gray-600">
-                  Subtasks
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-green-500 rounded-full" />
+                <span className="text-xs font-medium text-gray-700">
+                  {subtasks.filter(st => st.completed).length}/{subtasks.length}
                 </span>
-                {isSubtasksExpanded ? (
-                  <ChevronUp className="w-4 h-4 text-gray-500" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-gray-500" />
-                )}
               </div>
-              <span className="text-xs font-bold text-gray-800">
-                {subtasks.filter(st => st.completed).length}/{subtasks.length}
-              </span>
-            </div>
-            
-            {/* Progress Bar */}
-            <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
-              <div
-                className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                style={{
-                  width: `${(subtasks.filter(st => st.completed).length / subtasks.length) * 100}%`
-                }}
-              />
+              <ChevronDown className="w-3 h-3 text-gray-500" />
+            </button>
+          </div>
+        )}
+
+        {/* Expanded Subtasks Panel */}
+        {hasSubtasks && isSubtasksExpanded && (
+          <div className="absolute top-0 left-0 right-0 bg-white rounded-xl border-2 border-gray-300 shadow-xl z-10 max-h-80 overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between p-3 border-b bg-gray-50">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-gray-700">Sous-tâches</span>
+                <span className="text-xs text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full">
+                  {subtasks.filter(st => st.completed).length}/{subtasks.length}
+                </span>
+              </div>
+              <button
+                onClick={handleSubtasksClick}
+                className="p-1 hover:bg-gray-200 rounded-full transition-colors"
+              >
+                <ChevronUp className="w-4 h-4 text-gray-500" />
+              </button>
             </div>
 
-            {/* Expanded Subtasks List */}
-            {isSubtasksExpanded && (
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {subtasks.map((subtask) => (
-                  <div
-                    key={subtask.id}
-                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-black/5 transition-colors"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <button
-                      className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
-                        subtask.completed 
-                          ? 'bg-green-500 border-green-500 hover:bg-green-600' 
-                          : 'bg-white border-gray-400 hover:border-green-400'
-                      }`}
-                      onClick={() => handleSubtaskToggle(subtask.id, !subtask.completed)}
-                    >
-                      {subtask.completed && <Check className="w-3 h-3 text-white" />}
-                    </button>
-                    <span className={`flex-1 text-sm transition-all ${
+            {/* Subtasks List */}
+            <div className="max-h-60 overflow-y-auto p-2">
+              {subtasks.map((subtask) => (
+                <div
+                  key={subtask.id}
+                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
                       subtask.completed 
-                        ? 'text-gray-500 line-through' 
-                        : 'text-gray-800'
-                    }`}>
-                      {subtask.title}
-                    </span>
-                  </div>
-                ))}
+                        ? 'bg-green-500 border-green-500 hover:bg-green-600' 
+                        : 'bg-white border-gray-400 hover:border-green-400'
+                    }`}
+                    onClick={() => handleSubtaskToggle(subtask.id, !subtask.completed)}
+                  >
+                    {subtask.completed && <Check className="w-3 h-3 text-white" />}
+                  </button>
+                  <span className={`flex-1 text-sm transition-all ${
+                    subtask.completed 
+                      ? 'text-gray-500 line-through' 
+                      : 'text-gray-800'
+                  }`}>
+                    {subtask.title}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Progress Bar */}
+            <div className="p-3 border-t bg-gray-50">
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div
+                  className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                  style={{
+                    width: `${(subtasks.filter(st => st.completed).length / subtasks.length) * 100}%`
+                  }}
+                />
               </div>
-            )}
+            </div>
           </div>
         )}
 
