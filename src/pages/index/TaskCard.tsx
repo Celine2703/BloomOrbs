@@ -113,7 +113,7 @@ export default function TaskCard({
             >
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium text-gray-600">
-                  Sous-tâches
+                  Subtasks
                 </span>
                 {isSubtasksExpanded ? (
                   <ChevronUp className="w-4 h-4 text-gray-500" />
