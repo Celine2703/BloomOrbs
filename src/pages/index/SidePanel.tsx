@@ -83,6 +83,25 @@ export default function SidePanel(props: {
     setEditMode(false);
   };
 
+  const handleDelete = () => {
+    if (selectedTaskData) {
+      // Remove the task
+      setTasks((prev) => prev.filter((t) => t.id !== selectedTaskData.id));
+      // Remove all edges connected to this task
+      setEdges((prev) => prev.filter((e) => e.from !== selectedTaskData.id && e.to !== selectedTaskData.id));
+      // Close the panel
+      setSelectedTask(null);
+      setEditedTask(null);
+      setEditMode(false);
+      // Show confirmation toast
+      toast({ 
+        title: "Tâche supprimée", 
+        description: "La tâche et ses connexions ont été supprimées.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const updateField = <K extends keyof Task>(field: K, value: Task[K]) => {
     if (editedTask) {
       setEditedTask({ ...editedTask, [field]: value });
@@ -506,11 +525,29 @@ export default function SidePanel(props: {
             <Button onClick={handleCancel} variant="outline">
               Cancel
             </Button>
+            <Button 
+              onClick={handleDelete} 
+              variant="destructive" 
+              size="sm"
+              className="px-3"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
           </>
         ) : (
-          <Button onClick={handleEdit} className="w-full">
-            Edit
-          </Button>
+          <>
+            <Button onClick={handleEdit} className="flex-1">
+              Edit
+            </Button>
+            <Button 
+              onClick={handleDelete} 
+              variant="destructive" 
+              size="sm"
+              className="px-3"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </>
         )}
       </div>
     </motion.aside>

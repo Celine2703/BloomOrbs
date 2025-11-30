@@ -73,7 +73,7 @@ export default function TaskCard({
         />
         {/* Top Header Bar */}
         <div className="flex items-start justify-between p-4 pb-2 relative z-10">
-          {/* Left side: Status and Date */}
+          {/* Left side: Status only */}
           <div className="flex flex-col gap-2 flex-1">
             <div
               className="px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wide shadow-sm w-fit"
@@ -84,22 +84,25 @@ export default function TaskCard({
             >
               {status.label}
             </div>
-            
-            {/* Due Date under status */}
+          </div>
+
+          {/* Right side: Date and Assignee */}
+          <div className="flex items-center gap-3">
+            {/* Due Date */}
             {task.due && (
               <div className="flex items-center gap-1.5 text-sm text-gray-600 font-medium">
                 <Calendar className="w-4 h-4" />
                 <span>{formatDate(task.due)}</span>
               </div>
             )}
-          </div>
-
-          {/* Right: Assignee Avatar */}
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white shadow-md border border-white/20 flex-shrink-0"
-            style={{ backgroundColor: axisColor }}
-          >
-            {initials}
+            
+            {/* Assignee Avatar */}
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white shadow-md border border-white/20 flex-shrink-0"
+              style={{ backgroundColor: axisColor }}
+            >
+              {initials}
+            </div>
           </div>
         </div>
 
@@ -134,55 +137,52 @@ export default function TaskCard({
         {/* Expanded Subtasks Panel */}
         {hasSubtasks && isSubtasksExpanded && (
           <div 
-            className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl border-2 border-gray-300 shadow-xl z-30 max-h-80 overflow-hidden"
+            className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg border border-gray-300 shadow-lg z-30 max-h-48 overflow-hidden"
             onMouseDown={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
             onTouchStart={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-3 border-b bg-gray-50">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-gray-700">Sous-tâches</span>
-                <span className="text-xs text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full">
-                  {subtasks.filter(st => st.completed).length}/{subtasks.length}
-                </span>
-              </div>
+            <div className="flex items-center justify-between px-3 py-2 border-b bg-gray-50">
+              <span className="text-xs font-medium text-gray-600">
+                Subtasks ({subtasks.filter(st => st.completed).length}/{subtasks.length})
+              </span>
               <button
                 onClick={handleSubtasksClick}
                 onMouseDown={(e) => e.stopPropagation()}
                 onPointerDown={(e) => e.stopPropagation()}
                 onTouchStart={(e) => e.stopPropagation()}
-                className="p-1 hover:bg-gray-200 rounded-full transition-colors"
+                className="p-0.5 hover:bg-gray-200 rounded transition-colors"
               >
-                <ChevronUp className="w-4 h-4 text-gray-500" />
+                <ChevronUp className="w-3 h-3 text-gray-500" />
               </button>
             </div>
 
             {/* Subtasks List */}
-            <div className="max-h-60 overflow-y-auto p-2">
+            <div className="py-1">
               {subtasks.map((subtask) => (
                 <div
                   key={subtask.id}
-                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex items-center gap-2 px-3 py-1 hover:bg-gray-50 transition-colors"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <button
-                    className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                    className={`w-3 h-3 rounded border flex items-center justify-center flex-shrink-0 transition-all ${
                       subtask.completed 
-                        ? 'bg-green-500 border-green-500 hover:bg-green-600' 
-                        : 'bg-white border-gray-400 hover:border-green-400'
+                        ? 'bg-green-500 border-green-500' 
+                        : 'bg-white border-gray-300'
                     }`}
                     onClick={() => handleSubtaskToggle(subtask.id, !subtask.completed)}
                     onMouseDown={(e) => e.stopPropagation()}
                     onPointerDown={(e) => e.stopPropagation()}
                     onTouchStart={(e) => e.stopPropagation()}
                   >
-                    {subtask.completed && <Check className="w-3 h-3 text-white" />}
+                    {subtask.completed && <Check className="w-2 h-2 text-white" />}
                   </button>
-                  <span className={`flex-1 text-sm transition-all ${
+                  <span className={`flex-1 text-xs truncate ${
                     subtask.completed 
-                      ? 'text-gray-500 line-through' 
-                      : 'text-gray-800'
+                      ? 'text-gray-400 line-through' 
+                      : 'text-gray-700'
                   }`}>
                     {subtask.title}
                   </span>
@@ -190,17 +190,7 @@ export default function TaskCard({
               ))}
             </div>
 
-            {/* Progress Bar */}
-            <div className="p-3 border-t bg-gray-50">
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                  style={{
-                    width: `${(subtasks.filter(st => st.completed).length / subtasks.length) * 100}%`
-                  }}
-                />
-              </div>
-            </div>
+
           </div>
         )}
 
