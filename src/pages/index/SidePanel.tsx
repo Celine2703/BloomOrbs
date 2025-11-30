@@ -8,6 +8,14 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import type { Task, Edge, Axis, Status, Priority, Subtask } from "./types";
 
+const GROUPS = [
+  { id: "group-1", label: "Group 1 (Green)", bg: "hsl(140, 50%, 92%)" },
+  { id: "group-2", label: "Group 2 (Blue)", bg: "hsl(210, 60%, 92%)" },
+  { id: "group-3", label: "Group 3 (Purple)", bg: "hsl(270, 50%, 92%)" },
+  { id: "group-4", label: "Group 4 (Orange)", bg: "hsl(30, 70%, 92%)" },
+  { id: "group-5", label: "Group 5 (Pink)", bg: "hsl(350, 60%, 92%)" },
+];
+
 export default function SidePanel(props: {
   selectedTaskData: Task | null;
   editedTask: Task | null;
@@ -174,6 +182,23 @@ export default function SidePanel(props: {
             <div>
               <Label htmlFor="assignee">Assigned to</Label>
               <Input id="assignee" value={currentTask.assignee || ""} onChange={(e) => updateField("assignee", e.target.value || null)} className="mt-1" />
+            </div>
+
+            <div>
+              <Label htmlFor="group">Group</Label>
+              <select
+                id="group"
+                value={currentTask.group || ""}
+                onChange={(e) => updateField("group", e.target.value || undefined)}
+                className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="">No Group</option>
+                {GROUPS.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -374,6 +399,20 @@ export default function SidePanel(props: {
               <div className="text-xs text-gray-500 mb-1">Assigned to</div>
               <div>{currentTask.assignee || "—"}</div>
             </div>
+
+            {currentTask.group && (
+              <div>
+                <div className="text-xs text-gray-500 mb-1">Group</div>
+                <div
+                  className="inline-block px-3 py-1.5 rounded-md text-sm font-medium"
+                  style={{
+                    backgroundColor: GROUPS.find(g => g.id === currentTask.group)?.bg || "hsl(var(--muted))",
+                  }}
+                >
+                  {GROUPS.find(g => g.id === currentTask.group)?.label || currentTask.group}
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <div>
