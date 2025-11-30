@@ -20,6 +20,7 @@ export type Task = {
   duration?: number | null;
   position: { x: number; y: number };
   subtasks?: Subtask[];
+  group?: string; // Group identifier for colored backgrounds
   // temporary flag used for tasks created but not yet saved in the editor
   temporary?: boolean;
 };

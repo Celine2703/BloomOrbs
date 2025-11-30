@@ -18,8 +18,8 @@ const STATUSES: Status[] = ["draft", "to-do", "doing", "done"];
 const PRIORITIES: Priority[] = ["low", "medium", "high", "critical"];
 
 // Task visual constants (should match TaskCard dimensions)
-const TASK_WIDTH = 420;
-const TASK_HEIGHT = 64;
+const TASK_WIDTH = 280;
+const TASK_HEIGHT = 160;
 
 // Edge and Axis types are imported from ./index/types
 
@@ -42,6 +42,7 @@ const initialTasks: Task[] = [
     due: "2025-11-06", 
     description: "Validation of specifications.", 
     position: { x: 100, y: 240 },
+    group: "group-1",
     subtasks: [
       { id: "ST-003-1", title: "Review requirements document", completed: true },
       { id: "ST-003-2", title: "Get stakeholder approval", completed: true },
@@ -59,6 +60,7 @@ const initialTasks: Task[] = [
     due: "2025-11-18", 
     description: "Define samples.", 
     position: { x: 520, y: 160 },
+    group: "group-2",
     subtasks: [
       { id: "ST-007-1", title: "Define sample criteria", completed: false },
       { id: "ST-007-2", title: "Document procedures", completed: false },
@@ -75,6 +77,7 @@ const initialTasks: Task[] = [
     due: "2025-11-12", 
     description: "Supplier orders.", 
     position: { x: 1000, y: 160 },
+    group: "group-3",
     subtasks: [
       { id: "ST-009-1", title: "Get quotes from suppliers", completed: true },
       { id: "ST-009-2", title: "Place orders", completed: false },
@@ -92,6 +95,7 @@ const initialTasks: Task[] = [
     due: "2025-12-05", 
     description: "Quality controls.", 
     position: { x: 60, y: 340 },
+    group: "group-4",
     subtasks: [
       { id: "ST-012-1", title: "Remove duplicates", completed: false },
       { id: "ST-012-2", title: "Handle missing values", completed: false },
@@ -107,7 +111,8 @@ const initialTasks: Task[] = [
     start: null, 
     due: "2025-12-12", 
     description: "Linear models.", 
-    position: { x: 560, y: 340 } 
+    position: { x: 560, y: 340 },
+    group: "group-5",
   },
   { 
     id: "T-018", 
@@ -120,6 +125,7 @@ const initialTasks: Task[] = [
     due: "2025-12-20", 
     description: "Introduction, methods.", 
     position: { x: 1020, y: 340 },
+    group: "group-1",
     subtasks: [
       { id: "ST-018-1", title: "Write introduction", completed: false },
       { id: "ST-018-2", title: "Document methodology", completed: false },
@@ -136,7 +142,8 @@ const initialTasks: Task[] = [
     start: null, 
     due: "2026-01-10", 
     description: "Final submission.", 
-    position: { x: 1500, y: 340 } 
+    position: { x: 1500, y: 340 },
+    group: "group-2",
   },
 ];
 
@@ -160,6 +167,14 @@ const priorityConfig: Record<Priority, { bg: string; text: string; label: string
   medium: { bg: "hsl(var(--priority-medium))", text: "hsl(var(--priority-medium-fg))", label: "MED" },
   high: { bg: "hsl(var(--priority-high))", text: "hsl(var(--priority-high-fg))", label: "HIGH" },
   critical: { bg: "hsl(var(--priority-critical))", text: "hsl(var(--priority-critical-fg))", label: "CRIT" },
+};
+
+const groupConfig: Record<string, { bg: string; border: string }> = {
+  "group-1": { bg: "hsl(140, 50%, 92%)", border: "hsl(140, 50%, 60%)" },
+  "group-2": { bg: "hsl(210, 60%, 92%)", border: "hsl(210, 60%, 60%)" },
+  "group-3": { bg: "hsl(270, 50%, 92%)", border: "hsl(270, 50%, 60%)" },
+  "group-4": { bg: "hsl(30, 70%, 92%)", border: "hsl(30, 70%, 60%)" },
+  "group-5": { bg: "hsl(350, 60%, 92%)", border: "hsl(350, 60%, 60%)" },
 };
 
 /* TaskCard and ConnectionLine components have been moved to
@@ -912,6 +927,7 @@ export default function Index() {
                     axisColor={axisById[task.axisId]?.color || "#000"}
                     statusConfig={statusConfig}
                     priorityConfig={priorityConfig}
+                    groupConfig={groupConfig}
                   />
                 </motion.div>
               ))}
