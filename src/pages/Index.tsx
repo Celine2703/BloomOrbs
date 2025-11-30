@@ -1002,6 +1002,10 @@ export default function Index() {
       <AIAnalysisModal
         isOpen={showAnalysisModal}
         onClose={() => setShowAnalysisModal(false)}
+        tasks={tasks}
+        setTasks={setTasks}
+        edges={edges}
+        setEdges={setEdges}
       />
     </div>
   );

@@ -3,12 +3,22 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+import type { Task, Edge } from "./types";
+
 export default function AIAnalysisModal({
   isOpen,
   onClose,
+  tasks,
+  setTasks,
+  edges,
+  setEdges,
 }: {
   isOpen: boolean;
   onClose: () => void;
+  tasks: Task[];
+  setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
+  edges: Edge[];
+  setEdges: React.Dispatch<React.SetStateAction<Edge[]>>;
 }) {
   const [step, setStep] = useState<"confirm" | "analyzing" | "complete">("confirm");
   const [dots, setDots] = useState("");
@@ -24,6 +34,8 @@ export default function AIAnalysisModal({
 
       // Auto close after 3 seconds of analysis
       const timeout = setTimeout(() => {
+        // Create new tasks before completing
+        createNewTasks();
         setStep("complete");
         setTimeout(() => {
           onClose();
@@ -37,7 +49,70 @@ export default function AIAnalysisModal({
         clearTimeout(timeout);
       };
     }
-  }, [step, onClose]);
+  }, [step, onClose, tasks, setTasks, edges, setEdges]);
+
+  const createNewTasks = () => {
+    // Find the rightmost task to position new tasks after it
+    const rightmostTask = tasks.reduce((rightmost, task) => 
+      task.position.x > rightmost.position.x ? task : rightmost
+    );
+
+    const baseX = rightmostTask.position.x + 400; // 400px spacing
+    const baseY = rightmostTask.position.y;
+
+    const newTasks: Task[] = [
+      {
+        id: `T-${Date.now()}-1`,
+        axisId: "AX-03", // Analysis & Publication axis
+        title: "Pilot Study",
+        status: "to-do",
+        priority: "medium",
+        assignee: "Céline Martin",
+        start: null,
+        due: null,
+        description: "Conduct pilot study for the research project",
+        position: { x: baseX, y: baseY },
+        group: "group-1",
+      },
+      {
+        id: `T-${Date.now()}-2`,
+        axisId: "AX-03",
+        title: "Transcription",
+        status: "to-do", 
+        priority: "medium",
+        assignee: "Céline Martin",
+        start: null,
+        due: null,
+        description: "Transcribe collected data and interviews",
+        position: { x: baseX + 400, y: baseY },
+        group: "group-1",
+      },
+      {
+        id: `T-${Date.now()}-3`,
+        axisId: "AX-03",
+        title: "Advisor Review",
+        status: "to-do",
+        priority: "high",
+        assignee: "Céline Martin", 
+        start: null,
+        due: null,
+        description: "Submit work for advisor review and feedback",
+        position: { x: baseX + 800, y: baseY },
+        group: "group-1",
+      }
+    ];
+
+    // Create edges connecting the tasks
+    const newEdges: Edge[] = [
+      { from: rightmostTask.id, to: newTasks[0].id }, // Last task -> Pilot Study
+      { from: newTasks[0].id, to: newTasks[1].id },   // Pilot Study -> Transcription
+      { from: newTasks[1].id, to: newTasks[2].id },   // Transcription -> Advisor Review
+    ];
+
+    // Add new tasks and edges
+    setTasks(prev => [...prev, ...newTasks]);
+    setEdges(prev => [...prev, ...newEdges]);
+  };
 
   const handleYes = () => {
     setStep("analyzing");
