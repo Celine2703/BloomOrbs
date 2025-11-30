@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import SidePanel from "./index/SidePanel"; // Ensure this import is present
 import Toolbar from "./index/Toolbar";
 import ZoomControls from "./index/ZoomControls";
+import AIAnalysisModal from "./index/AIAnalysisModal";
 import type { Status, Priority, Task, Edge, Axis } from "./index/types";
 import TaskCard from "./index/TaskCard";
 import ConnectionLine from "./index/ConnectionLine";
@@ -209,6 +210,7 @@ export default function Index() {
   const [draggedTask, setDraggedTask] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [editedTask, setEditedTask] = useState<Task | null>(null);
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
 
   // manual zoom/scroll implementation
   const currentScaleRef = useRef<number>(1);
@@ -246,6 +248,11 @@ export default function Index() {
   const axisById = Object.fromEntries(axes.map(a => [a.id, a]));
   const taskById = Object.fromEntries(tasks.map(t => [t.id, t]));
   const selectedTaskData = selectedTask ? taskById[selectedTask] : null;
+
+  // Function to handle AI analysis
+  const handleAnalyse = useCallback(() => {
+    setShowAnalysisModal(true);
+  }, []);
 
   // Function to handle subtask toggle
   const handleSubtaskToggle = useCallback((taskId: string, subtaskId: string, completed: boolean) => {
@@ -575,6 +582,7 @@ export default function Index() {
         showCriticalPath={showCriticalPath}
         setShowCriticalPath={setShowCriticalPath}
         onAddTask={addNewTask}
+        onAnalyse={handleAnalyse}
       />
 
       {/* Canvas */}
@@ -989,6 +997,12 @@ export default function Index() {
           />
         )}
       </AnimatePresence>
+
+      {/* AI Analysis Modal */}
+      <AIAnalysisModal
+        isOpen={showAnalysisModal}
+        onClose={() => setShowAnalysisModal(false)}
+      />
     </div>
   );
 }

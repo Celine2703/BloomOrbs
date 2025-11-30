@@ -1,6 +1,6 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Filter, Plus } from "lucide-react";
+import { Search, Filter, Plus, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,6 +44,7 @@ export default function Toolbar({
   showCriticalPath: boolean;
   setShowCriticalPath: (b: boolean) => void;
   onAddTask?: () => void;
+  onAnalyse?: () => void;
 }) {
   return (
     <header className="sticky top-0 z-20 bg-white border-b border-gray-200">
@@ -73,6 +74,12 @@ export default function Toolbar({
           <Button variant={showCriticalPath ? "default" : "outline"} size="sm" onClick={() => setShowCriticalPath(!showCriticalPath)}>
             Critical Path
           </Button>
+          {onAnalyse && (
+            <Button variant="outline" size="sm" onClick={onAnalyse}>
+              <Brain className="w-4 h-4 mr-2" />
+              Analyse
+            </Button>
+          )}
         </div>
       </div>
 
