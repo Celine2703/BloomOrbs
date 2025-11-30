@@ -66,13 +66,13 @@ export default function TaskCard({
       >
         {/* Status Color Bar - Top */}
         <div 
-          className="absolute top-0 left-0 right-0 h-12 rounded-t-xl z-10"
+          className="absolute top-0 left-0 right-0 h-3 rounded-t-xl z-0"
           style={{
             backgroundColor: status.bg,
           }}
         />
         {/* Top Header Bar */}
-        <div className="flex items-start justify-between p-4 pb-2">
+        <div className="flex items-start justify-between p-4 pb-2 relative z-10">
           {/* Left side: Status and Date */}
           <div className="flex flex-col gap-2 flex-1">
             <div
@@ -133,7 +133,12 @@ export default function TaskCard({
 
         {/* Expanded Subtasks Panel */}
         {hasSubtasks && isSubtasksExpanded && (
-          <div className="absolute top-0 left-0 right-0 bg-white rounded-xl border-2 border-gray-300 shadow-xl z-30 max-h-80 overflow-hidden">
+          <div 
+            className="absolute top-0 left-0 right-0 bg-white rounded-xl border-2 border-gray-300 shadow-xl z-30 max-h-80 overflow-hidden"
+            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+          >
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b bg-gray-50">
               <div className="flex items-center gap-2">
@@ -144,6 +149,9 @@ export default function TaskCard({
               </div>
               <button
                 onClick={handleSubtasksClick}
+                onMouseDown={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+                onTouchStart={(e) => e.stopPropagation()}
                 className="p-1 hover:bg-gray-200 rounded-full transition-colors"
               >
                 <ChevronUp className="w-4 h-4 text-gray-500" />
@@ -165,6 +173,9 @@ export default function TaskCard({
                         : 'bg-white border-gray-400 hover:border-green-400'
                     }`}
                     onClick={() => handleSubtaskToggle(subtask.id, !subtask.completed)}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
                   >
                     {subtask.completed && <Check className="w-3 h-3 text-white" />}
                   </button>
