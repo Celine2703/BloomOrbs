@@ -66,7 +66,7 @@ export default function TaskCard({
       >
         {/* Status Color Bar - Top */}
         <div 
-          className="absolute top-0 left-0 right-0 h-4 rounded-t-xl z-10"
+          className="absolute top-0 left-0 right-0 h-12 rounded-t-xl z-10"
           style={{
             backgroundColor: status.bg,
           }}
@@ -96,7 +96,7 @@ export default function TaskCard({
 
           {/* Right: Assignee Avatar */}
           <div
-            className="w-12 h-12 rounded-xl flex items-center justify-center text-sm font-bold text-white shadow-lg border-2 border-white/20 flex-shrink-0"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white shadow-md border border-white/20 flex-shrink-0"
             style={{ backgroundColor: axisColor }}
           >
             {initials}
@@ -115,6 +115,9 @@ export default function TaskCard({
           <div className="absolute bottom-4 right-4 z-20">
             <button
               onClick={handleSubtasksClick}
+              onMouseDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
               className="flex items-center gap-1.5 px-2 py-1 bg-white hover:bg-gray-50 rounded-full shadow-md border border-gray-200 hover:border-gray-400 transition-all hover:shadow-lg cursor-pointer"
             >
               <div className="flex items-center gap-1">

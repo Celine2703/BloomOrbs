@@ -41,8 +41,8 @@ All colors MUST be HSL.
     /* Task status colors */
     --status-draft: 0 0% 90%;
     --status-draft-fg: 0 0% 40%;
-    --status-todo: 210 100% 95%;
-    --status-todo-fg: 217 91% 60%;
+    --status-todo:    0 85% 96%;  
+    --status-todo-fg: 0 70% 45%;  
     --status-doing: 270 60% 95%;
     --status-doing-fg: 270 60% 50%;
     --status-done: 140 60% 92%;
