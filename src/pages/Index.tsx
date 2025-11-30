@@ -18,8 +18,8 @@ const STATUSES: Status[] = ["draft", "to-do", "doing", "done"];
 const PRIORITIES: Priority[] = ["low", "medium", "high", "critical"];
 
 // Task visual constants (should match TaskCard dimensions)
-const TASK_WIDTH = 280;
-const TASK_HEIGHT = 160;
+const TASK_WIDTH = 320;
+const TASK_HEIGHT = 180;
 
 // Edge and Axis types are imported from ./index/types
 

@@ -50,39 +50,39 @@ export default function TaskCard({
         }}
       >
         {/* Top Header Bar */}
-        <div className="flex items-center justify-between p-4 pb-2">
-          {/* Left: Status */}
-          <div
-            className="px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wide shadow-sm"
-            style={{
-              backgroundColor: status.bg,
-              color: status.text,
-            }}
-          >
-            {status.label}
+        <div className="flex items-start justify-between p-4 pb-2">
+          {/* Left side: Status and Date */}
+          <div className="flex flex-col gap-2 flex-1">
+            <div
+              className="px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wide shadow-sm w-fit"
+              style={{
+                backgroundColor: status.bg,
+                color: status.text,
+              }}
+            >
+              {status.label}
+            </div>
+            
+            {/* Due Date under status */}
+            {task.due && (
+              <div className="flex items-center gap-1.5 text-sm text-gray-600 font-medium">
+                <Calendar className="w-4 h-4" />
+                <span>{formatDate(task.due)}</span>
+              </div>
+            )}
           </div>
 
           {/* Right: Assignee Avatar */}
           <div
-            className="w-12 h-12 rounded-xl flex items-center justify-center text-sm font-bold text-white shadow-lg border-2 border-white/20"
+            className="w-12 h-12 rounded-xl flex items-center justify-center text-sm font-bold text-white shadow-lg border-2 border-white/20 flex-shrink-0"
             style={{ backgroundColor: axisColor }}
           >
-            <User className="w-5 h-5" />
+            {initials}
           </div>
         </div>
 
-        {/* Due Date - Top Left under status */}
-        {task.due && (
-          <div className="px-4 pb-2">
-            <div className="flex items-center gap-1.5 text-sm text-gray-600 font-medium">
-              <Calendar className="w-4 h-4" />
-              <span>{formatDate(task.due)}</span>
-            </div>
-          </div>
-        )}
-
         {/* Task Title - Center */}
-        <div className="px-4 py-3 flex items-center justify-center h-[80px]">
+        <div className="px-4 py-2 flex items-center justify-center h-[70px]">
           <div className="font-bold text-lg text-gray-900 text-center leading-tight line-clamp-3">
             {task.title}
           </div>
