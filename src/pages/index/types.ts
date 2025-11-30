@@ -1,6 +1,12 @@
 export type Status = "draft" | "to-do" | "doing" | "done";
 export type Priority = "low" | "medium" | "high" | "critical";
 
+export type Subtask = {
+  id: string;
+  title: string;
+  completed: boolean;
+};
+
 export type Task = {
   id: string;
   axisId: string;
@@ -13,6 +19,7 @@ export type Task = {
   description?: string;
   duration?: number | null;
   position: { x: number; y: number };
+  subtasks?: Subtask[];
   // temporary flag used for tasks created but not yet saved in the editor
   temporary?: boolean;
 };

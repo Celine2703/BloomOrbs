@@ -1,12 +1,12 @@
-import React from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { X, Trash2 } from "lucide-react";
+import { X, Trash2, Plus, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import type { Task, Edge, Axis, Status, Priority } from "./types";
+import type { Task, Edge, Axis, Status, Priority, Subtask } from "./types";
 
 export default function SidePanel(props: {
   selectedTaskData: Task | null;
@@ -45,6 +45,7 @@ export default function SidePanel(props: {
     PRIORITIES,
   } = props;
   const { toast } = useToast();
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
 
   if (!selectedTaskData) return null;
 
@@ -78,6 +79,32 @@ export default function SidePanel(props: {
     if (editedTask) {
       setEditedTask({ ...editedTask, [field]: value });
     }
+  };
+
+  const addSubtask = () => {
+    if (!editedTask || !newSubtaskTitle.trim()) return;
+    const newSubtask: Subtask = {
+      id: `ST-${Date.now()}`,
+      title: newSubtaskTitle.trim(),
+      completed: false,
+    };
+    const updatedSubtasks = [...(editedTask.subtasks || []), newSubtask];
+    updateField("subtasks", updatedSubtasks);
+    setNewSubtaskTitle("");
+  };
+
+  const removeSubtask = (subtaskId: string) => {
+    if (!editedTask) return;
+    const updatedSubtasks = (editedTask.subtasks || []).filter((st) => st.id !== subtaskId);
+    updateField("subtasks", updatedSubtasks);
+  };
+
+  const toggleSubtask = (subtaskId: string) => {
+    if (!editedTask) return;
+    const updatedSubtasks = (editedTask.subtasks || []).map((st) =>
+      st.id === subtaskId ? { ...st, completed: !st.completed } : st
+    );
+    updateField("subtasks", updatedSubtasks);
   };
 
   return (
@@ -169,6 +196,53 @@ export default function SidePanel(props: {
             <div>
               <Label htmlFor="description">Description</Label>
               <Textarea id="description" value={currentTask.description || ""} onChange={(e) => updateField("description", e.target.value)} className="mt-1 min-h-[100px]" />
+            </div>
+
+            {/* Subtasks Section */}
+            <div className="pt-4 border-t">
+              <Label className="mb-2 block">Subtasks</Label>
+              <div className="space-y-2">
+                {(currentTask.subtasks || []).map((subtask) => (
+                  <div key={subtask.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                    <button
+                      type="button"
+                      onClick={() => toggleSubtask(subtask.id)}
+                      className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 ${
+                        subtask.completed ? "bg-green-500 border-green-500" : "bg-white border-gray-300"
+                      }`}
+                    >
+                      {subtask.completed && <Check className="w-3 h-3 text-white" />}
+                    </button>
+                    <span className={`flex-1 text-sm ${subtask.completed ? "text-gray-500 line-through" : "text-gray-700"}`}>
+                      {subtask.title}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeSubtask(subtask.id)}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ))}
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="New subtask..."
+                    value={newSubtaskTitle}
+                    onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addSubtask();
+                      }
+                    }}
+                    className="flex-1"
+                  />
+                  <Button onClick={addSubtask} size="sm" disabled={!newSubtaskTitle.trim()}>
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
             </div>
 
             <div className="pt-4 border-t">
@@ -323,6 +397,27 @@ export default function SidePanel(props: {
               <div>
                 <div className="text-xs text-gray-500 mb-1">Description</div>
                 <p className="text-sm text-gray-700">{currentTask.description}</p>
+              </div>
+            )}
+
+            {/* Subtasks in view mode */}
+            {currentTask.subtasks && currentTask.subtasks.length > 0 && (
+              <div>
+                <div className="text-xs text-gray-500 mb-2">Subtasks ({currentTask.subtasks.filter(st => st.completed).length}/{currentTask.subtasks.length} completed)</div>
+                <div className="space-y-1.5">
+                  {currentTask.subtasks.map((subtask) => (
+                    <div key={subtask.id} className="flex items-center gap-2 text-sm">
+                      <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${
+                        subtask.completed ? "bg-green-500 border-green-500" : "bg-white border-gray-300"
+                      }`}>
+                        {subtask.completed && <Check className="w-3 h-3 text-white" />}
+                      </div>
+                      <span className={subtask.completed ? "text-gray-500 line-through" : "text-gray-700"}>
+                        {subtask.title}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 

@@ -31,13 +31,113 @@ const axes: Axis[] = [
 ];
 
 const initialTasks: Task[] = [
-  { id: "T-003", axisId: "AX-01", title: "Validate specifications", status: "done", priority: "medium", assignee: "J. Martin", start: null, due: "2025-11-06", description: "Validation of specifications.", position: { x: 100, y: 240 } },
-  { id: "T-007", axisId: "AX-01", title: "Write experimental protocol", status: "to-do", priority: "high", assignee: "A. Leroy", start: "2025-11-04", due: "2025-11-18", description: "Define samples.", position: { x: 520, y: 160 } },
-  { id: "T-009", axisId: "AX-01", title: "Order reagents", status: "doing", priority: "medium", assignee: "P. Diallo", start: null, due: "2025-11-12", description: "Supplier orders.", position: { x: 1000, y: 160 } },
-  { id: "T-012", axisId: "AX-02", title: "Data cleaning V1", status: "to-do", priority: "medium", assignee: "K. Dupont", start: null, due: "2025-12-05", description: "Quality controls.", position: { x: 60, y: 340 } },
-  { id: "T-015", axisId: "AX-03", title: "Preliminary statistical analysis", status: "draft", priority: "high", assignee: "M. Silva", start: null, due: "2025-12-12", description: "Linear models.", position: { x: 560, y: 340 } },
-  { id: "T-018", axisId: "AX-03", title: "Pre-print writing", status: "draft", priority: "critical", assignee: "C. Bernard", start: null, due: "2025-12-20", description: "Introduction, methods.", position: { x: 1020, y: 340 } },
-  { id: "T-021", axisId: "AX-03", title: "Submission", status: "to-do", priority: "medium", assignee: "Team", start: null, due: "2026-01-10", description: "Final submission.", position: { x: 1500, y: 340 } },
+  { 
+    id: "T-003", 
+    axisId: "AX-01", 
+    title: "Validate specifications", 
+    status: "done", 
+    priority: "medium", 
+    assignee: "J. Martin", 
+    start: null, 
+    due: "2025-11-06", 
+    description: "Validation of specifications.", 
+    position: { x: 100, y: 240 },
+    subtasks: [
+      { id: "ST-003-1", title: "Review requirements document", completed: true },
+      { id: "ST-003-2", title: "Get stakeholder approval", completed: true },
+      { id: "ST-003-3", title: "Update project timeline", completed: true },
+    ]
+  },
+  { 
+    id: "T-007", 
+    axisId: "AX-01", 
+    title: "Write experimental protocol", 
+    status: "to-do", 
+    priority: "high", 
+    assignee: "A. Leroy", 
+    start: "2025-11-04", 
+    due: "2025-11-18", 
+    description: "Define samples.", 
+    position: { x: 520, y: 160 },
+    subtasks: [
+      { id: "ST-007-1", title: "Define sample criteria", completed: false },
+      { id: "ST-007-2", title: "Document procedures", completed: false },
+    ]
+  },
+  { 
+    id: "T-009", 
+    axisId: "AX-01", 
+    title: "Order reagents", 
+    status: "doing", 
+    priority: "medium", 
+    assignee: "P. Diallo", 
+    start: null, 
+    due: "2025-11-12", 
+    description: "Supplier orders.", 
+    position: { x: 1000, y: 160 },
+    subtasks: [
+      { id: "ST-009-1", title: "Get quotes from suppliers", completed: true },
+      { id: "ST-009-2", title: "Place orders", completed: false },
+      { id: "ST-009-3", title: "Track deliveries", completed: false },
+    ]
+  },
+  { 
+    id: "T-012", 
+    axisId: "AX-02", 
+    title: "Data cleaning V1", 
+    status: "to-do", 
+    priority: "medium", 
+    assignee: "K. Dupont", 
+    start: null, 
+    due: "2025-12-05", 
+    description: "Quality controls.", 
+    position: { x: 60, y: 340 },
+    subtasks: [
+      { id: "ST-012-1", title: "Remove duplicates", completed: false },
+      { id: "ST-012-2", title: "Handle missing values", completed: false },
+    ]
+  },
+  { 
+    id: "T-015", 
+    axisId: "AX-03", 
+    title: "Preliminary statistical analysis", 
+    status: "draft", 
+    priority: "high", 
+    assignee: "M. Silva", 
+    start: null, 
+    due: "2025-12-12", 
+    description: "Linear models.", 
+    position: { x: 560, y: 340 } 
+  },
+  { 
+    id: "T-018", 
+    axisId: "AX-03", 
+    title: "Pre-print writing", 
+    status: "draft", 
+    priority: "critical", 
+    assignee: "C. Bernard", 
+    start: null, 
+    due: "2025-12-20", 
+    description: "Introduction, methods.", 
+    position: { x: 1020, y: 340 },
+    subtasks: [
+      { id: "ST-018-1", title: "Write introduction", completed: false },
+      { id: "ST-018-2", title: "Document methodology", completed: false },
+      { id: "ST-018-3", title: "Compile results section", completed: false },
+    ]
+  },
+  { 
+    id: "T-021", 
+    axisId: "AX-03", 
+    title: "Submission", 
+    status: "to-do", 
+    priority: "medium", 
+    assignee: "Team", 
+    start: null, 
+    due: "2026-01-10", 
+    description: "Final submission.", 
+    position: { x: 1500, y: 340 } 
+  },
 ];
 
 const initialEdges: Edge[] = [
