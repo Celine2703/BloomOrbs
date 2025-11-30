@@ -44,6 +44,7 @@ const initialTasks: Task[] = [
     description: "Validation of specifications.", 
     position: { x: 60, y: 100 },
     group: "group-1",
+    createdAt: 1733005200000, // Nov 1, 2024
     subtasks: [
       { id: "ST-003-1", title: "Review requirements document", completed: true },
       { id: "ST-003-2", title: "Get stakeholder approval", completed: true },
@@ -62,6 +63,7 @@ const initialTasks: Task[] = [
     description: "Define samples.", 
     position: { x: 480, y: 60 },
     group: "group-2",
+    createdAt: 1733091600000, // Nov 2, 2024
     subtasks: [
       { id: "ST-007-1", title: "Define sample criteria", completed: false },
       { id: "ST-007-2", title: "Document procedures", completed: false },
@@ -79,6 +81,7 @@ const initialTasks: Task[] = [
     description: "Supplier orders.", 
     position: { x: 900, y: 120 },
     group: "group-3",
+    createdAt: 1733178000000, // Nov 3, 2024
     subtasks: [
       { id: "ST-009-1", title: "Get quotes from suppliers", completed: true },
       { id: "ST-009-2", title: "Place orders", completed: false },
@@ -97,6 +100,7 @@ const initialTasks: Task[] = [
     description: "Quality controls.", 
     position: { x: 100, y: 420 },
     group: "group-4",
+    createdAt: 1733264400000, // Nov 4, 2024
     subtasks: [
       { id: "ST-012-1", title: "Remove duplicates", completed: false },
       { id: "ST-012-2", title: "Handle missing values", completed: false },
@@ -114,6 +118,7 @@ const initialTasks: Task[] = [
     description: "Linear models.", 
     position: { x: 520, y: 460 },
     group: "group-5",
+    createdAt: 1733350800000, // Nov 5, 2024
   },
   { 
     id: "T-018", 
@@ -127,6 +132,7 @@ const initialTasks: Task[] = [
     description: "Introduction, methods.", 
     position: { x: 940, y: 400 },
     group: "group-1",
+    createdAt: 1733437200000, // Nov 6, 2024
     subtasks: [
       { id: "ST-018-1", title: "Write introduction", completed: false },
       { id: "ST-018-2", title: "Document methodology", completed: false },
@@ -145,6 +151,7 @@ const initialTasks: Task[] = [
     description: "Final submission.", 
     position: { x: 1300, y: 280 },
     group: "group-2",
+    createdAt: 1733523600000, // Nov 7, 2024
   },
 ];
 
@@ -543,6 +550,7 @@ export default function Index() {
       duration: null,
       position: pos,
       temporary: true,
+      createdAt: Date.now(),
     };
     setTasks((prev) => [...prev, newTask]);
     setSelectedTask(id);
@@ -683,6 +691,7 @@ export default function Index() {
                   duration: null,
                   position: { x: Math.max(20, Math.round(canvasX - leftOffset)), y: Math.max(20, Math.round(canvasY - topOffset)) },
                   temporary: true,
+                  createdAt: Date.now(),
                 };
                 setTasks((prev) => [...prev, newTask]);
                 setSelectedTask(id);

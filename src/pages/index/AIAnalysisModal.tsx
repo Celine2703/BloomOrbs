@@ -52,66 +52,94 @@ export default function AIAnalysisModal({
   }, [step, onClose, tasks, setTasks, edges, setEdges]);
 
   const createNewTasks = () => {
-    // Find the rightmost task to position new tasks after it
-    const rightmostTask = tasks.reduce((rightmost, task) => 
-      task.position.x > rightmost.position.x ? task : rightmost
+    // Find the most recently created task
+    const lastTask = tasks.reduce((latest, task) => 
+      task.createdAt > latest.createdAt ? task : latest
     );
 
-    const baseX = rightmostTask.position.x + 400; // 400px spacing
-    const baseY = rightmostTask.position.y;
+    // Check if tasks with these names already exist
+    const pilotStudyTask = tasks.find(t => t.title.toLowerCase().includes("pilot study"));
+    const transcriptionTask = tasks.find(t => t.title.toLowerCase().includes("transcription"));
+    const advisorReviewTask = tasks.find(t => t.title.toLowerCase().includes("advisor review"));
 
-    const newTasks: Task[] = [
-      {
-        id: `T-${Date.now()}-1`,
-        axisId: "AX-03", // Analysis & Publication axis
-        title: "Pilot Study",
-        status: "to-do",
-        priority: "medium",
-        assignee: "Céline Martin",
-        start: null,
-        due: null,
-        description: "Conduct pilot study for the research project",
-        position: { x: baseX, y: baseY },
-        group: "group-1",
-      },
-      {
-        id: `T-${Date.now()}-2`,
-        axisId: "AX-03",
-        title: "Transcription",
-        status: "to-do", 
-        priority: "medium",
-        assignee: "Céline Martin",
-        start: null,
-        due: null,
-        description: "Transcribe collected data and interviews",
-        position: { x: baseX + 400, y: baseY },
-        group: "group-1",
-      },
-      {
-        id: `T-${Date.now()}-3`,
-        axisId: "AX-03",
-        title: "Advisor Review",
-        status: "to-do",
-        priority: "high",
-        assignee: "Céline Martin", 
-        start: null,
-        due: null,
-        description: "Submit work for advisor review and feedback",
-        position: { x: baseX + 800, y: baseY },
-        group: "group-1",
+    const taskNames = ["Pilot Study", "Transcription", "Advisor Review"];
+    const existingTasks = [pilotStudyTask, transcriptionTask, advisorReviewTask];
+    
+    if (existingTasks.some(task => task !== undefined)) {
+      // If any tasks already exist, just create a link to the first existing one
+      const firstExisting = existingTasks.find(task => task !== undefined);
+      if (firstExisting) {
+        // Check if link already exists
+        const linkExists = edges.some(edge => 
+          edge.from === lastTask.id && edge.to === firstExisting.id
+        );
+        
+        if (!linkExists) {
+          setEdges(prev => [...prev, { from: lastTask.id, to: firstExisting.id }]);
+        }
       }
-    ];
+    } else {
+      // Create all new tasks if none exist
+      const baseX = lastTask.position.x + 400; // 400px spacing
+      const baseY = lastTask.position.y;
 
-    // Create edges connecting the tasks
-    const newEdges: Edge[] = [
-      { from: rightmostTask.id, to: newTasks[0].id }, // Last task -> Pilot Study
-      { from: newTasks[0].id, to: newTasks[1].id },   // Pilot Study -> Transcription
-      { from: newTasks[1].id, to: newTasks[2].id },   // Transcription -> Advisor Review
-    ];
+      const currentTime = Date.now();
+      const newTasks: Task[] = [
+        {
+          id: `T-${currentTime}-1`,
+          axisId: "AX-03", // Analysis & Publication axis
+          title: "Pilot Study",
+          status: "to-do",
+          priority: "medium",
+          assignee: "Céline Martin",
+          start: null,
+          due: null,
+          description: "Conduct pilot study for the research project",
+          position: { x: baseX, y: baseY },
+          group: "group-1",
+          createdAt: currentTime + 1,
+        },
+        {
+          id: `T-${currentTime}-2`,
+          axisId: "AX-03",
+          title: "Transcription",
+          status: "to-do", 
+          priority: "medium",
+          assignee: "Céline Martin",
+          start: null,
+          due: null,
+          description: "Transcribe collected data and interviews",
+          position: { x: baseX + 400, y: baseY },
+          group: "group-1",
+          createdAt: currentTime + 2,
+        },
+        {
+          id: `T-${currentTime}-3`,
+          axisId: "AX-03",
+          title: "Advisor Review",
+          status: "to-do",
+          priority: "high",
+          assignee: "Céline Martin", 
+          start: null,
+          due: null,
+          description: "Submit work for advisor review and feedback",
+          position: { x: baseX + 800, y: baseY },
+          group: "group-1",
+          createdAt: currentTime + 3,
+        }
+      ];
 
-    // Add new tasks and edges
-    setTasks(prev => [...prev, ...newTasks]);
-    setEdges(prev => [...prev, ...newEdges]);
+      // Create edges connecting the tasks
+      const newEdges: Edge[] = [
+        { from: lastTask.id, to: newTasks[0].id }, // Last task -> Pilot Study
+        { from: newTasks[0].id, to: newTasks[1].id },   // Pilot Study -> Transcription
+        { from: newTasks[1].id, to: newTasks[2].id },   // Transcription -> Advisor Review
+      ];
+
+      // Add new tasks and edges
+      setTasks(prev => [...prev, ...newTasks]);
+      setEdges(prev => [...prev, ...newEdges]);
+    }
   };
 
   const handleYes = () => {

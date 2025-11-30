@@ -245,6 +245,23 @@ export default function SidePanel(props: {
             </div>
 
             <div>
+              <Label htmlFor="created">Created On</Label>
+              <Input 
+                id="created" 
+                type="text" 
+                value={new Date(currentTask.createdAt).toLocaleString('fr-FR', {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })} 
+                readOnly 
+                className="mt-1 bg-gray-100 cursor-not-allowed" 
+              />
+            </div>
+
+            <div>
               <Label htmlFor="duration">Duration (days)</Label>
               <Input id="duration" type="number" min="1" value={currentTask.duration || ""} onChange={(e) => updateField("duration", e.target.value ? parseInt(e.target.value) : null)} className="mt-1" />
             </div>

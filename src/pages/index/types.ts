@@ -23,6 +23,7 @@ export type Task = {
   group?: string; // Group identifier for colored backgrounds
   // temporary flag used for tasks created but not yet saved in the editor
   temporary?: boolean;
+  createdAt: number;
 };
 
 export type Edge = { from: string; to: string };
